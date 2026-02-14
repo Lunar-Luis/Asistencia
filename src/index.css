@@ -1,0 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+/* Esta línea le dice a Tailwind v4 que usaremos una clase ".dark" para el modo oscuro */
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  /* Tu tipografía original */
+  --font-poppins: 'Poppins', sans-serif;
+  
+  /* Tus colores originales */
+  --color-primary: #7380ec;
+  --color-danger: #ff4d4f;
+  --color-success: #41f1b6;
+  --color-warning: #ffbb55;
+  --color-white: #fff;
+  --color-info-dark: #363949;
+  --color-info-light: #dce1eb;
+  --color-dark: #363949;
+  --color-light: rgba(132, 139, 200, 0.18);
+  --color-primary-variant: #111e88;
+  --color-dark-variant: #677483;
+  --color-background: #f6f6f9;
+  
+  /* Tus colores originales para el Modo Oscuro */
+  --color-dark-bg: #181a1e;
+  --color-dark-white: #202528;
+  --color-dark-text: #edeffd;
+  --color-dark-text-variant: #a3bdcc;
+  --color-dark-light: rgba(0, 0, 0, 0.4);
+
+  /* Tus sombras originales */
+  --shadow-custom: 0 2rem 3rem rgba(132, 139, 200, 0.18);
+  --shadow-custom-dark: 0 2rem 3rem rgba(0, 0, 0, 0.4);
+}
+
+@layer base {
+  body {
+    @apply bg-background text-dark font-poppins dark:bg-dark-bg dark:text-dark-text overflow-x-hidden select-none;
+  }
+}
