@@ -4,7 +4,7 @@ import RightTopBar from '../components/RightTopBar';
 
 export default function Empleados() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [uidNfc, setUidNfc] = useState('');
+  const [uidNfc, _setUidNfc] = useState('');
 
   // DATOS SIMULADOS (Relaciones de la Base de Datos)
   // Cuando conectes el backend, estos datos vendrán de un fetch()
