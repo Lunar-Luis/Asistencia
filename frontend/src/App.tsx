@@ -12,6 +12,10 @@ import Registro from './pages/Registro';
 import Reportes from './pages/Reportes';
 import Login from './pages/login';
 
+// Nuevas Páginas de Usuario
+import Profile from './pages/Profile';
+import Settings from './pages/Settings';
+
 // ==========================================
 // 1. EL GUARDIA DE SEGURIDAD (Protected Route)
 // ==========================================
@@ -53,12 +57,19 @@ export default function App() {
             <ProtectedRoute>
               <AdminLayout>
                 <Routes>
+                  {/* Rutas Principales del Menú */}
                   <Route path="/" element={<Inicio />} />
                   <Route path="/empleados" element={<Empleados />} />
                   <Route path="/cargos" element={<Cargos />} />
                   <Route path="/horarios" element={<Horarios />} />
                   <Route path="/registro" element={<Registro />} />
                   <Route path="/reportes" element={<Reportes />} />
+
+                  {/* Nuevas Rutas de Perfil y Ajustes */}
+                  <Route path="/perfil" element={<Profile />} />
+                  <Route path="/configuracion" element={<Settings />} />
+
+                  {/* Redirección por defecto si la ruta no existe */}
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </AdminLayout>

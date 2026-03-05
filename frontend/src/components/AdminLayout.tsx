@@ -1,4 +1,4 @@
-import { type ReactNode, useState, useEffect } from 'react';
+import { type ReactNode, useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -8,6 +8,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   
   const [isOpen, setIsOpen] = useState(true);
   const [isDark, setIsDark] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isDark) {
@@ -16,6 +18,16 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       document.documentElement.classList.remove('dark');
     }
   }, [isDark]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const menu = [
     { path: '/', icon: 'grid_view', text: 'Inicio' },
@@ -37,11 +49,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   };
 
   return (
-    /* Contenedor principal: Altura de pantalla completa y bloqueamos el scroll exterior */
-    /* Mantenemos tus clases bg originales tal cual */
     <div className="flex w-full h-screen bg-light dark:bg-dark-background overflow-hidden">
       
-      {/* SIDEBAR: Altura completa (h-full) para que se mantenga fijo al lateral */}
       <motion.aside
         initial={false}
         animate={{ width: isOpen ? "14rem" : "7rem" }}
@@ -111,7 +120,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        {/* Menú de opciones: Solo esta parte tiene scroll si los items superan la pantalla */}
+        {/* Menú de opciones */}
         <div className="flex flex-col mt-[0.8rem] w-full grow overflow-y-auto overflow-x-hidden no-scrollbar">
           {menu.map(item => (
             <Link 
@@ -158,87 +167,100 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           ))}
         </div>
 
-        {/* SECCIÓN DE PERFIL Y TOGGLE (FIJA ABAJO POR shrink-0) */}
-        <div className="mb-4 px-4 pt-4 border-t border-light dark:border-dark-light/20 relative min-h-[5rem] shrink-0">
-          <AnimatePresence mode="wait">
-            {isOpen ? (
-              <motion.div 
-                key="perfil-open"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="flex items-center justify-between w-full"
+        {/* SECCIÓN DE PERFIL CON ANIMACIÓN FLUIDA */}
+        <div className="mb-4 px-4 pt-4 border-t border-light dark:border-dark-light/20 relative shrink-0" ref={profileRef}>
+          
+          <AnimatePresence>
+            {showProfileMenu && (
+              <motion.div
+                initial={{ opacity: 0, x: isOpen ? 0 : 20, y: isOpen ? 10 : 0, scale: 0.95 }}
+                animate={{ opacity: 1, x: isOpen ? 0 : 0, y: 0, scale: 1 }}
+                exit={{ opacity: 0, x: isOpen ? 0 : 20, y: isOpen ? 10 : 0, scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                className={`absolute bg-white dark:bg-dark-white rounded-2xl shadow-2xl border border-light dark:border-dark-light/20 overflow-hidden z-[100] w-48
+                  ${isOpen ? 'bottom-full left-4 mb-2' : 'left-full bottom-0 ml-4'}
+                `}
               >
-                <div className="flex items-center gap-3">
-                  <div className="relative shrink-0">
-                    <img src="/images/logo.png" alt="Perfil" className="w-10 h-10 rounded-full object-cover border-2 border-primary/20" />
-                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-success rounded-full border-2 border-white dark:border-dark-white shadow-sm"></span>
+                <div className="p-2 flex flex-col gap-1">
+                  <div className="px-3 py-2 md:hidden border-b border-light dark:border-dark-light/10 mb-1">
+                     <p className="text-[0.8rem] font-bold dark:text-dark-text">CMBT</p>
+                     <p className="text-[0.6rem] text-info-dark dark:text-dark-text-variant">Súper Admin</p>
                   </div>
-                  <div className="flex flex-col">
-                    <p className="text-[0.85rem] font-black dark:text-dark-text leading-none uppercase tracking-wider">CMBT</p>
-                    <span className="text-[0.65rem] text-info-dark dark:text-dark-text-variant font-medium mt-1">Súper Admin</span>
-                  </div>
-                </div>
-
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => setIsDark(!isDark)}
-                  className="w-10 h-10 flex items-center justify-center rounded-xl bg-light dark:bg-dark-light text-primary shadow-sm"
-                >
-                  <AnimatePresence mode="wait">
-                    <motion.span
-                      key={isDark ? 'dark' : 'light'}
-                      initial={{ opacity: 0, rotate: -90, scale: 0.5 }}
-                      animate={{ opacity: 1, rotate: 0, scale: 1 }}
-                      exit={{ opacity: 0, rotate: 90, scale: 0.5 }}
-                      transition={{ duration: 0.2 }}
-                      className="material-icons-sharp text-[1.4rem]"
-                    >
-                      {isDark ? 'dark_mode' : 'light_mode'}
-                    </motion.span>
-                  </AnimatePresence>
-                </motion.button>
-              </motion.div>
-            ) : (
-              <motion.div 
-                key="perfil-closed"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="flex flex-col items-center gap-4 w-full group/profile relative"
-              >
-                <div className="relative shrink-0">
-                  <img src="/images/logo.png" alt="Perfil" className="w-10 h-10 rounded-full object-cover border-2 border-primary/20" />
-                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-success rounded-full border-2 border-white dark:border-dark-white shadow-sm"></span>
-                </div>
-
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => setIsDark(!isDark)}
-                  className="w-10 h-10 flex items-center justify-center rounded-xl bg-light dark:bg-dark-light text-primary shadow-sm"
-                >
-                  <AnimatePresence mode="wait">
-                    <motion.span
-                      key={isDark ? 'dark' : 'light'}
-                      initial={{ opacity: 0, rotate: -90, scale: 0.5 }}
-                      animate={{ opacity: 1, rotate: 0, scale: 1 }}
-                      exit={{ opacity: 0, rotate: 90, scale: 0.5 }}
-                      transition={{ duration: 0.2 }}
-                      className="material-icons-sharp text-[1.4rem]"
-                    >
-                      {isDark ? 'dark_mode' : 'light_mode'}
-                    </motion.span>
-                  </AnimatePresence>
-                </motion.button>
-                <div className="absolute left-full ml-6 px-3 py-1.5 bg-gray-800 text-white text-[0.75rem] rounded-md opacity-0 group-hover/profile:opacity-100 transition-all duration-300 translate-x-[-10px] group-hover/profile:translate-x-0 pointer-events-none z-[100] whitespace-nowrap shadow-xl">
-                  Perfil / Tema
-                  <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-gray-800 rotate-45" />
+                  <Link 
+                    to="/perfil" 
+                    onClick={() => setShowProfileMenu(false)}
+                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-light dark:hover:bg-dark-light transition-colors group"
+                  >
+                    <span className="material-icons-sharp text-info-dark dark:text-dark-text-variant group-hover:text-primary transition-colors">manage_accounts</span>
+                    <span className="text-[0.85rem] font-medium text-info-dark dark:text-dark-text-variant group-hover:text-primary">Editar Perfil</span>
+                  </Link>
+                  <div className="h-[1px] bg-light dark:bg-dark-light/20 mx-2" />
+                  <Link 
+                    to="/configuracion" 
+                    onClick={() => setShowProfileMenu(false)}
+                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-light dark:hover:bg-dark-light transition-colors group"
+                  >
+                    <span className="material-icons-sharp text-info-dark dark:text-dark-text-variant group-hover:text-primary transition-colors">settings</span>
+                    <span className="text-[0.85rem] font-medium text-info-dark dark:text-dark-text-variant group-hover:text-primary">Ajustes</span>
+                  </Link>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* El uso de Layout aquí es vital para evitar el "salto" */}
+          <motion.div 
+            layout
+            transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+            className={`flex items-center w-full relative h-12 ${isOpen ? 'justify-between' : 'justify-center'}`}
+          >
+            <motion.div 
+              layout
+              className="flex items-center gap-3 cursor-pointer group"
+              onClick={() => setShowProfileMenu(!showProfileMenu)}
+            >
+              <motion.div layout className="relative shrink-0 transition-transform group-hover:scale-110 duration-300">
+                <img src="/images/logo.png" alt="Perfil" className="w-10 h-10 rounded-full object-cover border-2 border-primary/20" />
+                <span className="absolute bottom-0 right-0 w-3 h-3 bg-success rounded-full border-2 border-white dark:border-dark-white shadow-sm"></span>
+              </motion.div>
+              
+              <AnimatePresence>
+                {isOpen && (
+                  <motion.div 
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    className="flex flex-col overflow-hidden"
+                  >
+                    <p className="text-[0.85rem] font-black dark:text-dark-text leading-none uppercase tracking-wider whitespace-nowrap">CMBT</p>
+                    <span className="text-[0.65rem] text-info-dark dark:text-dark-text-variant font-medium mt-1 whitespace-nowrap">Súper Admin</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+
+            <AnimatePresence>
+              {isOpen && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.5, x: 20 }}
+                  animate={{ opacity: 1, scale: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.5, x: 20 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setIsDark(!isDark)}
+                  className="w-10 h-10 flex items-center justify-center rounded-xl bg-light dark:bg-dark-light text-primary shadow-sm shrink-0"
+                >
+                  <motion.span
+                    key={isDark ? 'dark' : 'light'}
+                    initial={{ rotate: -90, opacity: 0 }}
+                    animate={{ rotate: 0, opacity: 1 }}
+                    className="material-icons-sharp text-[1.4rem]"
+                  >
+                    {isDark ? 'dark_mode' : 'light_mode'}
+                  </motion.span>
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </motion.div>
         </div>
 
         {/* Botón Salir */}
@@ -279,7 +301,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </div>
       </motion.aside>
 
-      {/* CONTENIDO PRINCIPAL: Habilitamos el scroll independiente aquí */}
       <main className="flex-1 p-[1.8rem] min-w-0 h-screen overflow-y-auto scroll-smooth">
         {children}
       </main>
