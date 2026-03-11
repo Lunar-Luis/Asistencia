@@ -52,6 +52,66 @@ export default function Empleados() {
               <button className="bg-warning text-white text-xs px-3 py-1.5 rounded-lg font-bold">Editar</button>
             </div>
           </div>
+
+          <div className="relative bg-white dark:bg-dark-white p-4 rounded-[2rem] shadow-custom dark:shadow-custom-dark hover:shadow-none hover:-translate-y-1 transition-all flex flex-col items-center overflow-hidden group">
+            <span className="absolute top-3 right-3 bg-success text-white px-3 py-1 rounded-full text-xs font-bold uppercase opacity-0 translate-y-[-10px] group-hover:opacity-100 group-hover:translate-y-0 transition-all">Presente</span>
+            <img src="/images/ANURBE.jpg" alt="Empleado" className="w-20 h-20 rounded-full object-cover mb-3" />
+            <h3 className="font-bold text-[1rem]">Anurbe Martínez</h3>
+            <p className="text-[0.85rem] text-dark-variant dark:text-dark-text-variant">Cargo: Administrador</p>
+            <p className="text-[0.80rem] text-info-dark dark:text-dark-text-variant mt-1">Horario: Administrativo</p>
+            <div className="flex gap-2 mt-3">
+              <button className="bg-primary text-white text-xs px-3 py-1.5 rounded-lg font-bold">Detalles</button>
+              <button className="bg-warning text-white text-xs px-3 py-1.5 rounded-lg font-bold">Editar</button>
+            </div>
+          </div>
+
+          <div className="relative bg-white dark:bg-dark-white p-4 rounded-[2rem] shadow-custom dark:shadow-custom-dark hover:shadow-none hover:-translate-y-1 transition-all flex flex-col items-center overflow-hidden group">
+            <span className="absolute top-3 right-3 bg-success text-white px-3 py-1 rounded-full text-xs font-bold uppercase opacity-0 translate-y-[-10px] group-hover:opacity-100 group-hover:translate-y-0 transition-all">Presente</span>
+            <img src="/images/ANURBE.jpg" alt="Empleado" className="w-20 h-20 rounded-full object-cover mb-3" />
+            <h3 className="font-bold text-[1rem]">Anurbe Martínez</h3>
+            <p className="text-[0.85rem] text-dark-variant dark:text-dark-text-variant">Cargo: Administrador</p>
+            <p className="text-[0.80rem] text-info-dark dark:text-dark-text-variant mt-1">Horario: Administrativo</p>
+            <div className="flex gap-2 mt-3">
+              <button className="bg-primary text-white text-xs px-3 py-1.5 rounded-lg font-bold">Detalles</button>
+              <button className="bg-warning text-white text-xs px-3 py-1.5 rounded-lg font-bold">Editar</button>
+            </div>
+          </div>
+
+          <div className="relative bg-white dark:bg-dark-white p-4 rounded-[2rem] shadow-custom dark:shadow-custom-dark hover:shadow-none hover:-translate-y-1 transition-all flex flex-col items-center overflow-hidden group">
+            <span className="absolute top-3 right-3 bg-success text-white px-3 py-1 rounded-full text-xs font-bold uppercase opacity-0 translate-y-[-10px] group-hover:opacity-100 group-hover:translate-y-0 transition-all">Presente</span>
+            <img src="/images/ANURBE.jpg" alt="Empleado" className="w-20 h-20 rounded-full object-cover mb-3" />
+            <h3 className="font-bold text-[1rem]">Anurbe Martínez</h3>
+            <p className="text-[0.85rem] text-dark-variant dark:text-dark-text-variant">Cargo: Administrador</p>
+            <p className="text-[0.80rem] text-info-dark dark:text-dark-text-variant mt-1">Horario: Administrativo</p>
+            <div className="flex gap-2 mt-3">
+              <button className="bg-primary text-white text-xs px-3 py-1.5 rounded-lg font-bold">Detalles</button>
+              <button className="bg-warning text-white text-xs px-3 py-1.5 rounded-lg font-bold">Editar</button>
+            </div>
+          </div>
+
+          <div className="relative bg-white dark:bg-dark-white p-4 rounded-[2rem] shadow-custom dark:shadow-custom-dark hover:shadow-none hover:-translate-y-1 transition-all flex flex-col items-center overflow-hidden group">
+            <span className="absolute top-3 right-3 bg-success text-white px-3 py-1 rounded-full text-xs font-bold uppercase opacity-0 translate-y-[-10px] group-hover:opacity-100 group-hover:translate-y-0 transition-all">Presente</span>
+            <img src="/images/ANURBE.jpg" alt="Empleado" className="w-20 h-20 rounded-full object-cover mb-3" />
+            <h3 className="font-bold text-[1rem]">Anurbe Martínez</h3>
+            <p className="text-[0.85rem] text-dark-variant dark:text-dark-text-variant">Cargo: Administrador</p>
+            <p className="text-[0.80rem] text-info-dark dark:text-dark-text-variant mt-1">Horario: Administrativo</p>
+            <div className="flex gap-2 mt-3">
+              <button className="bg-primary text-white text-xs px-3 py-1.5 rounded-lg font-bold">Detalles</button>
+              <button className="bg-warning text-white text-xs px-3 py-1.5 rounded-lg font-bold">Editar</button>
+            </div>
+          </div>
+
+          <div className="relative bg-white dark:bg-dark-white p-4 rounded-[2rem] shadow-custom dark:shadow-custom-dark hover:shadow-none hover:-translate-y-1 transition-all flex flex-col items-center overflow-hidden group">
+            <span className="absolute top-3 right-3 bg-success text-white px-3 py-1 rounded-full text-xs font-bold uppercase opacity-0 translate-y-[-10px] group-hover:opacity-100 group-hover:translate-y-0 transition-all">Presente</span>
+            <img src="/images/ANURBE.jpg" alt="Empleado" className="w-20 h-20 rounded-full object-cover mb-3" />
+            <h3 className="font-bold text-[1rem]">Anurbe Martínez</h3>
+            <p className="text-[0.85rem] text-dark-variant dark:text-dark-text-variant">Cargo: Administrador</p>
+            <p className="text-[0.80rem] text-info-dark dark:text-dark-text-variant mt-1">Horario: Administrativo</p>
+            <div className="flex gap-2 mt-3">
+              <button className="bg-primary text-white text-xs px-3 py-1.5 rounded-lg font-bold">Detalles</button>
+              <button className="bg-warning text-white text-xs px-3 py-1.5 rounded-lg font-bold">Editar</button>
+            </div>
+          </div>
         </div>
 
         {/* Botón Agregar */}
