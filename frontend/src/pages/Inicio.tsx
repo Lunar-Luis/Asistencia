@@ -5,13 +5,12 @@ import {
   Users, CheckCircle2, Clock, XCircle,
   TrendingUp, UserPlus, FileBarChart,
   Settings, CalendarDays,
-  ClipboardList, Cpu
+  ClipboardList, Fingerprint
 } from 'lucide-react';
 
 // ==========================================
 // ESTILOS GLOBALES CORPORATIVOS (Hover Suave)
 // ==========================================
-// Se cambió la sombra exagerada por un efecto sutil y elegante sin desplazamiento.
 const hoverEffect = "transition-all duration-200 hover:shadow-md border border-transparent hover:border-slate-200 dark:hover:border-slate-700 dark:hover:bg-white/5";
 
 const animProps = {
@@ -178,7 +177,7 @@ export default function Inicio() {
               <h3 className="font-black uppercase italic tracking-tighter dark:text-white text-xl">Actividad Reciente</h3>
               <p className="text-[10px] font-bold text-info-dark/40 dark:text-white/60 uppercase tracking-widest mt-1">Últimos registros nfc detectados</p>
             </div>
-            <Link to="/registro" className="text-[10px] font-black uppercase text-primary hover:underline italic transition-all">Ver historial completo</Link>
+            <Link to="/asistencias" className="text-[10px] font-black uppercase text-primary hover:underline italic transition-all">Ver historial completo</Link>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -244,7 +243,7 @@ export default function Inicio() {
                    const aHeight = (data.a / total) * 100;
 
                    return (
-                     <div key={i} className="w-[11%] h-full flex flex-col justify-end items-center gap-4">
+                     <div key={i} className="w-[11%] h-full flex flex-col justify-end items-center gap-4 group">
                        <div className="w-full flex flex-col-reverse h-full bg-gray-100 dark:bg-white/5 rounded-2xl relative overflow-hidden transition-colors">
                           <motion.div initial={{height:0}} animate={{height: `${pHeight}%`}} transition={{ duration: 0.8, delay: 0.1 }}
                             className="bg-success w-full relative cursor-pointer hover:brightness-110 transition-all border-t border-white/10"
@@ -281,14 +280,14 @@ export default function Inicio() {
               <p className="text-[10px] font-bold text-info-dark/40 dark:text-white/60 uppercase mt-1 mb-8 tracking-widest">Atajos de gestión</p>
               <div className="grid grid-cols-2 gap-4">
                 {[
-                  { label: "Personal", sub: "Empleados", path: "/empleados", icon: <UserPlus size={24}/>, color: "bg-primary" },
-                  { label: "NFC", sub: "Registro", path: "/registro", icon: <Cpu size={24}/>, color: "bg-indigo-500" },
+                  { label: "Empleados", sub: "Personal", path: "/empleados", icon: <UserPlus size={24}/>, color: "bg-primary" },
+                  { label: "Asistencias", sub: "Control", path: "/asistencias", icon: <Fingerprint size={24}/>, color: "bg-indigo-500" },
                   { label: "Cargos", sub: "Roles", path: "/cargos", icon: <ClipboardList size={24}/>, color: "bg-purple-500" },
                   { label: "Reportes", sub: "Exportar", path: "/reportes", icon: <FileBarChart size={24}/>, color: "bg-success" },
                   { label: "Horarios", sub: "Turnos", path: "/horarios", icon: <CalendarDays size={24}/>, color: "bg-warning" },
                   { label: "Ajustes", sub: "Sistema", path: "/configuracion", icon: <Settings size={24}/>, color: "bg-[#4154f1]" },
                 ].map((action, i) => (
-                  <Link key={i} to={action.path} className="flex flex-col items-center p-4 rounded-[2rem] hover:bg-slate-50 dark:hover:bg-white/5 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
+                  <Link key={i} to={action.path} className="flex flex-col items-center p-4 rounded-[2rem] hover:bg-light dark:hover:bg-dark-light/10 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
                     <div className={`p-4 rounded-2xl ${action.color} text-white shadow-sm`}>
                       {action.icon}
                     </div>

@@ -8,7 +8,7 @@ import Inicio from './pages/Inicio';
 import Empleados from './pages/Empleados';
 import Cargos from './pages/Cargos';
 import Horarios from './pages/Horarios'; 
-import Registro from './pages/Registro';
+import Asistencias from './pages/Asistencias';
 import Reportes from './pages/Reportes';
 import Login from './pages/login';
 
@@ -59,17 +59,13 @@ export default function App() {
                 <Routes>
                   {/* Rutas Principales del Menú */}
                   <Route path="/" element={<Inicio />} />
+                  <Route path="/asistencias" element={<Asistencias />} />
                   <Route path="/empleados" element={<Empleados />} />
                   <Route path="/cargos" element={<Cargos />} />
                   <Route path="/horarios" element={<Horarios />} />
-                  <Route path="/registro" element={<Registro />} />
                   <Route path="/reportes" element={<Reportes />} />
-
-                  {/* Nuevas Rutas de Perfil y Ajustes */}
                   <Route path="/perfil" element={<Profile />} />
                   <Route path="/configuracion" element={<Settings />} />
-
-                  {/* Redirección por defecto si la ruta no existe */}
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </AdminLayout>

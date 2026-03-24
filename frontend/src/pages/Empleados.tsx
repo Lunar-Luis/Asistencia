@@ -294,7 +294,7 @@ export default function Empleados() {
               ))}
             </AnimatePresence>
           )}
-        </div>
+        </div> 
       </main>
 
       {/* --- MODAL DE REGISTRO / EDICIÓN --- */}
