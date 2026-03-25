@@ -1,16 +1,24 @@
-import { type ReactNode, useState, useEffect, useRef } from 'react';
+import { type ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  LayoutDashboard, Users, Briefcase, Clock,
+  Calendar, FileBarChart, LogOut, Sun, Moon, Settings, UserCircle,
+  Menu, X
+} from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const isActive = (path: string) => location.pathname === path;
   
-  const [isOpen, setIsOpen] = useState(true);
+  // Estados del Menú
+  const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
+  const [isMobileOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // Estado del Tema
   const [isDark, setIsDark] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const profileRef = useRef<HTMLDivElement>(null);
 
+  // Aplicar Tema Oscuro
   useEffect(() => {
     if (isDark) {
       document.documentElement.classList.add('dark');
@@ -19,292 +27,136 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     }
   }, [isDark]);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
-        setShowProfileMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const menu = [
-    { path: '/', icon: 'grid_view', text: 'Inicio' },
-    { path: '/empleados', icon: 'groups', text: 'Empleados' },
-    { path: '/cargos', icon: 'work', text: 'Cargos' },
-    { path: '/horarios', icon: 'schedule', text: 'Horarios' },
-    { path: '/registro', icon: 'nfc', text: 'Registro (En Vivo)' },
-    { path: '/reportes', icon: 'analytics', text: 'Reporte' },
-  ];
-
-  const shimmerStyle = {
-    maskImage: 'url(/images/SL.png)',
-    WebkitMaskImage: 'url(/images/SL.png)',
-    maskSize: 'contain',
-    maskRepeat: 'no-repeat',
-    maskPosition: 'center',
-    background: 'linear-gradient(110deg, transparent 25%, rgba(255,255,255,0.6) 50%, transparent 75%)',
-    backgroundSize: '200% 100%'
+  // --- SOLUCIÓN AL ERROR ---
+  // Quitamos el useEffect que causaba el error y manejamos el cierre 
+  // mediante una función simple que llamaremos en los Links.
+  const handleNavigation = () => {
+    if (window.innerWidth < 768) {
+      setIsMobileMenuOpen(false);
+    }
   };
 
+  const menu = [
+    { path: '/', icon: <LayoutDashboard size={22} />, text: 'Inicio' },
+    { path: '/asistencias', icon: <Clock size={22} />, text: 'Asistencias' },
+    { path: '/empleados', icon: <Users size={22} />, text: 'Empleados' },
+    { path: '/cargos', icon: <Briefcase size={22} />, text: 'Cargos' },
+    { path: '/horarios', icon: <Calendar size={22} />, text: 'Horarios' },
+    { path: '/reportes', icon: <FileBarChart size={22} />, text: 'Reportes' },
+  ];
+
   return (
-    <div className="flex w-full h-screen bg-light dark:bg-dark-background overflow-hidden">
+    <div className="flex w-full h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans text-slate-800 dark:text-slate-200">
       
+      {/* BARRA SUPERIOR PARA MÓVILES */}
+      <div className="md:hidden fixed top-0 left-0 w-full h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 z-40 flex items-center justify-between px-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <img src="/images/logo.png" alt="Logo CMBT" className="w-8 h-8 object-contain" />
+          <h2 className="font-black text-xl tracking-tight text-primary dark:text-white">CMBT</h2>
+        </div>
+        <button 
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg"
+        >
+          <Menu size={24} />
+        </button>
+      </div>
+
+      {/* OVERLAY OSCURO */}
+      <AnimatePresence>
+        {isMobileOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="md:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* MENÚ LATERAL */}
       <motion.aside
         initial={false}
-        animate={{ width: isOpen ? "14rem" : "7rem" }}
-        transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-        className="h-full hidden md:flex flex-col bg-white dark:bg-dark-white shadow-xl z-50 shrink-0"
+        animate={{ 
+          width: isDesktopCollapsed ? "5.5rem" : "16rem",
+          x: typeof window !== 'undefined' && window.innerWidth < 768 ? (isMobileOpen ? 0 : "-100%") : 0
+        }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
+        className="fixed md:relative top-0 left-0 h-full flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 z-50 shrink-0"
       >
-        
-        {/* Contenedor del Logo */}
-        <div className="mt-[1.4rem] w-full shrink-0 min-h-[3.5rem] flex items-center justify-center overflow-hidden">
-          <div 
-            className="cursor-pointer select-none w-full h-full flex items-center justify-center"
-            onClick={() => setIsOpen(!isOpen)}
-          >
-            <AnimatePresence mode="wait">
-              {isOpen ? (
-                <motion.div 
-                  key="open"
-                  initial={{ opacity: 0, filter: "blur(8px)" }}
-                  animate={{ opacity: 1, filter: "blur(0px)" }}
-                  exit={{ opacity: 0, filter: "blur(8px)" }}
-                  transition={{ duration: 0.4 }}
-                  className="flex items-center pl-4 w-full"
+        <div className={`w-full flex shrink-0 border-b border-slate-100 dark:border-slate-800
+          ${isDesktopCollapsed ? 'h-24 flex-col items-center justify-center gap-3 pt-2' : 'h-20 items-center justify-between px-6'}`}
+        >
+          <div className="flex items-center justify-center overflow-hidden">
+            <img src="/images/logo.png" alt="Logo CMBT" className={`object-contain shrink-0 ${isDesktopCollapsed ? 'w-8 h-8' : 'w-7 h-7'}`} />
+            <AnimatePresence>
+              {!isDesktopCollapsed && (
+                <motion.h2 
+                  initial={{ opacity: 0, width: 0 }} animate={{ opacity: 1, width: "auto" }} exit={{ opacity: 0, width: 0 }}
+                  className="font-black text-xl ml-3 tracking-tighter text-primary dark:text-white whitespace-nowrap"
                 >
-                  <div className="relative w-[2.2rem] h-[1.8rem] flex-shrink-0">
-                    <motion.div 
-                      className="absolute inset-0 z-20"
-                      style={shimmerStyle}
-                      animate={{ backgroundPosition: ['200% 0', '-200% 0'] }}
-                      transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-                    />
-                    <img src="/images/SL.png" alt="Logo" className="w-full h-full object-contain relative z-10" />
-                  </div>
-                  <h2 className="text-info-dark dark:text-dark-text font-extrabold text-[1.4rem] ml-2 whitespace-nowrap tracking-tighter">
-                    SYNC<motion.span 
-                      className="bg-gradient-to-r from-primary via-indigo-900 to-primary dark:via-white bg-[length:200%_auto] bg-clip-text text-transparent inline-block"
-                      animate={{ backgroundPosition: ["0% center", "200% center"] }}
-                      transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
-                    >LOGIC</motion.span>
-                  </h2>
-                </motion.div>
-              ) : (
-                <motion.div 
-                  key="closed"
-                  initial={{ opacity: 0, scale: 0.8, filter: "blur(8px)" }}
-                  animate={{ opacity: 1, scale: 1.8, filter: "blur(0px)" }}
-                  exit={{ opacity: 0, scale: 0.8, filter: "blur(8px)" }}
-                  transition={{ duration: 0.4 }}
-                  className="relative w-[2.5rem] h-[2.5rem] flex items-center justify-center"
-                >
-                  <motion.div 
-                    className="absolute inset-0 bg-primary/20 rounded-full blur-2xl"
-                    animate={{ opacity: [0.1, 0.3, 0.1] }}
-                    transition={{ duration: 4, repeat: Infinity }}
-                  />
-                  <div className="relative w-full h-full">
-                    <motion.div 
-                      className="absolute inset-0 z-20"
-                      style={shimmerStyle}
-                      animate={{ backgroundPosition: ['200% 0', '-200% 0'] }}
-                      transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-                    />
-                    <img src="/images/SL.png" alt="Logo" className="w-full h-full object-contain relative z-10" />
-                  </div>
-                </motion.div>
+                  CMBT
+                </motion.h2>
               )}
             </AnimatePresence>
           </div>
+          <button onClick={() => setIsDesktopCollapsed(!isDesktopCollapsed)} className="hidden md:flex p-2 rounded-xl text-slate-400 hover:text-primary hover:bg-primary/10 transition-colors">
+            <Menu size={20} />
+          </button>
+          <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden p-2 rounded-xl text-slate-400 hover:text-danger hover:bg-danger/10">
+            <X size={20} />
+          </button>
         </div>
 
-        {/* Menú de opciones */}
-        <div className="flex flex-col mt-[0.8rem] w-full grow overflow-y-auto overflow-x-hidden no-scrollbar">
+        <div className="flex flex-col py-6 w-full grow overflow-y-auto overflow-x-hidden gap-1.5">
           {menu.map(item => (
             <Link 
               key={item.path} 
               to={item.path} 
-              className={`group flex items-center h-[3.7rem] relative font-medium transition-all duration-500 ease-in-out w-full justify-start
-                ${isActive(item.path) ? 'bg-light dark:bg-dark-light text-primary' : 'text-info-dark dark:text-dark-text-variant hover:text-primary'}
-                ${isOpen ? 'pl-3' : 'pl-[2.7rem]'}
+              onClick={handleNavigation} // <-- Cerramos el menú aquí al hacer clic
+              className={`group flex items-center h-12 relative font-semibold transition-colors w-full
+                ${isDesktopCollapsed ? 'justify-center' : 'px-6'}
+                ${isActive(item.path) 
+                  ? 'text-primary dark:text-primary bg-primary/5 dark:bg-primary/10' 
+                  : 'text-slate-500 hover:text-primary dark:hover:text-primary hover:bg-slate-50 dark:hover:bg-white/5'
+                }
               `}
             >
-              {isActive(item.path) && (
-                <motion.div
-                  layoutId="active-indicator"
-                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  className="absolute left-0 w-[6px] h-full bg-primary rounded-r-md"
-                />
-              )}
-              <motion.span 
-                whileHover={{ scale: 1.15 }}
-                className={`material-icons-sharp text-[1.6rem] flex-shrink-0 transition-colors duration-500 ${isActive(item.path) ? 'text-primary' : ''}`}
-              >
+              {isActive(item.path) && <div className="absolute left-0 top-2 bottom-2 w-1.5 bg-primary rounded-r-md" />}
+              <div className={`flex items-center justify-center shrink-0 ${isDesktopCollapsed ? 'group-hover:scale-110' : ''}`}>
                 {item.icon}
-              </motion.span>
-              <AnimatePresence mode="wait">
-                {isOpen ? (
-                  <motion.div
-                    key="text"
-                    initial={{ width: 0, opacity: 0 }}
-                    animate={{ width: "auto", opacity: 1 }}
-                    exit={{ width: 0, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="overflow-hidden flex-shrink-0 ml-4"
-                  >
-                    <h3 className="text-[0.87rem] w-max whitespace-nowrap">{item.text}</h3>
-                  </motion.div>
-                ) : (
-                  <div className="absolute left-full ml-6 px-3 py-1.5 bg-gray-800 text-white text-[0.75rem] rounded-md opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-[-10px] group-hover:translate-x-0 pointer-events-none z-[100] whitespace-nowrap shadow-xl">
-                    {item.text}
-                    <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-gray-800 rotate-45" />
-                  </div>
-                )}
-              </AnimatePresence>
+              </div>
+              {!isDesktopCollapsed && <span className="text-[13px] ml-4 whitespace-nowrap tracking-wide">{item.text}</span>}
             </Link>
           ))}
         </div>
 
-        {/* SECCIÓN DE PERFIL CON ANIMACIÓN FLUIDA */}
-        <div className="mb-4 px-4 pt-4 border-t border-light dark:border-dark-light/20 relative shrink-0" ref={profileRef}>
-          
-          <AnimatePresence>
-            {showProfileMenu && (
-              <motion.div
-                initial={{ opacity: 0, x: isOpen ? 0 : 20, y: isOpen ? 10 : 0, scale: 0.95 }}
-                animate={{ opacity: 1, x: isOpen ? 0 : 0, y: 0, scale: 1 }}
-                exit={{ opacity: 0, x: isOpen ? 0 : 20, y: isOpen ? 10 : 0, scale: 0.95 }}
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                className={`absolute bg-white dark:bg-dark-white rounded-2xl shadow-2xl border border-light dark:border-dark-light/20 overflow-hidden z-[100] w-48
-                  ${isOpen ? 'bottom-full left-4 mb-2' : 'left-full bottom-0 ml-4'}
-                `}
-              >
-                <div className="p-2 flex flex-col gap-1">
-                  <div className="px-3 py-2 md:hidden border-b border-light dark:border-dark-light/10 mb-1">
-                     <p className="text-[0.8rem] font-bold dark:text-dark-text">CMBT</p>
-                     <p className="text-[0.6rem] text-info-dark dark:text-dark-text-variant">Súper Admin</p>
-                  </div>
-                  <Link 
-                    to="/perfil" 
-                    onClick={() => setShowProfileMenu(false)}
-                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-light dark:hover:bg-dark-light transition-colors group"
-                  >
-                    <span className="material-icons-sharp text-info-dark dark:text-dark-text-variant group-hover:text-primary transition-colors">manage_accounts</span>
-                    <span className="text-[0.85rem] font-medium text-info-dark dark:text-dark-text-variant group-hover:text-primary">Editar Perfil</span>
-                  </Link>
-                  <div className="h-[1px] bg-light dark:bg-dark-light/20 mx-2" />
-                  <Link 
-                    to="/configuracion" 
-                    onClick={() => setShowProfileMenu(false)}
-                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-light dark:hover:bg-dark-light transition-colors group"
-                  >
-                    <span className="material-icons-sharp text-info-dark dark:text-dark-text-variant group-hover:text-primary transition-colors">settings</span>
-                    <span className="text-[0.85rem] font-medium text-info-dark dark:text-dark-text-variant group-hover:text-primary">Ajustes</span>
-                  </Link>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+        {/* ÁREA INFERIOR */}
+        <div className={`p-4 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-2 shrink-0 ${isDesktopCollapsed ? 'items-center pb-6' : ''}`}>
+          <Link to="/configuracion" onClick={handleNavigation} className={`flex items-center h-10 rounded-xl text-slate-500 hover:text-primary transition-colors ${isDesktopCollapsed ? 'justify-center w-10' : 'px-3'}`}>
+             <Settings size={20} className="shrink-0" />
+             {!isDesktopCollapsed && <span className="text-[13px] font-semibold ml-4 whitespace-nowrap">Ajustes</span>}
+          </Link>
 
-          {/* El uso de Layout aquí es vital para evitar el "salto" */}
-          <motion.div 
-            layout
-            transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-            className={`flex items-center w-full relative h-12 ${isOpen ? 'justify-between' : 'justify-center'}`}
-          >
-            <motion.div 
-              layout
-              className="flex items-center gap-3 cursor-pointer group"
-              onClick={() => setShowProfileMenu(!showProfileMenu)}
-            >
-              <motion.div layout className="relative shrink-0 transition-transform group-hover:scale-110 duration-300">
-                <img src="/images/logo.png" alt="Perfil" className="w-10 h-10 rounded-full object-cover border-2 border-primary/20" />
-                <span className="absolute bottom-0 right-0 w-3 h-3 bg-success rounded-full border-2 border-white dark:border-dark-white shadow-sm"></span>
-              </motion.div>
-              
-              <AnimatePresence>
-                {isOpen && (
-                  <motion.div 
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -10 }}
-                    className="flex flex-col overflow-hidden"
-                  >
-                    <p className="text-[0.85rem] font-black dark:text-dark-text leading-none uppercase tracking-wider whitespace-nowrap">CMBT</p>
-                    <span className="text-[0.65rem] text-info-dark dark:text-dark-text-variant font-medium mt-1 whitespace-nowrap">Súper Admin</span>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
+          <div className={`flex items-center w-full ${isDesktopCollapsed ? 'flex-col gap-4 py-2' : 'justify-between px-3 h-10'}`}>
+             <Link to="/perfil" onClick={handleNavigation} className={`flex items-center gap-3 text-slate-500 hover:text-primary transition-colors ${isDesktopCollapsed ? 'bg-slate-50 dark:bg-slate-800 p-2 rounded-xl' : ''}`}>
+               <UserCircle size={22} className="shrink-0" />
+               {!isDesktopCollapsed && <span className="text-[13px] font-bold whitespace-nowrap text-slate-700 dark:text-slate-300">Admin</span>}
+             </Link>
+             <button onClick={() => setIsDark(!isDark)} className="p-2 rounded-xl text-slate-400 hover:text-primary transition-colors">
+               {isDark ? <Sun size={18} /> : <Moon size={18} />}
+             </button>
+          </div>
 
-            <AnimatePresence>
-              {isOpen && (
-                <motion.button
-                  initial={{ opacity: 0, scale: 0.5, x: 20 }}
-                  animate={{ opacity: 1, scale: 1, x: 0 }}
-                  exit={{ opacity: 0, scale: 0.5, x: 20 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => setIsDark(!isDark)}
-                  className="w-10 h-10 flex items-center justify-center rounded-xl bg-light dark:bg-dark-light text-primary shadow-sm shrink-0"
-                >
-                  <motion.span
-                    key={isDark ? 'dark' : 'light'}
-                    initial={{ rotate: -90, opacity: 0 }}
-                    animate={{ rotate: 0, opacity: 1 }}
-                    className="material-icons-sharp text-[1.4rem]"
-                  >
-                    {isDark ? 'dark_mode' : 'light_mode'}
-                  </motion.span>
-                </motion.button>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        </div>
-
-        {/* Botón Salir */}
-        <div className="mb-[1rem] w-full shrink-0">
-          <Link to="/salir" 
-            className={`group flex items-center h-[3.7rem] relative font-bold text-info-dark dark:text-dark-text-variant hover:text-danger w-full transition-all duration-500
-              ${isOpen ? 'pl-3' : 'pl-[2.7rem]'}
-            `}
-          >
-            <motion.span 
-              whileHover={{ scale: 1.15 }}
-              className="material-icons-sharp text-[1.6rem] flex-shrink-0"
-            >
-              logout
-            </motion.span>
-            <AnimatePresence mode="wait">
-              {isOpen ? (
-                <motion.div
-                  key="logout-text"
-                  initial={{ width: 0, opacity: 0 }}
-                  animate={{ width: "auto", opacity: 1 }}
-                  exit={{ width: 0, opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="overflow-hidden flex-shrink-0 ml-4"
-                >
-                  <h3 className="text-[0.8rem] uppercase tracking-[0.1em] whitespace-nowrap">
-                    Cerrar Sesión
-                  </h3>
-                </motion.div>
-              ) : (
-                <div className="absolute left-full ml-6 px-3 py-1.5 bg-gray-800 text-white text-[0.75rem] rounded-md opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-[-10px] group-hover:translate-x-0 pointer-events-none z-[100] whitespace-nowrap shadow-xl">
-                  Cerrar Sesión
-                  <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-gray-800 rotate-45" />
-                </div>
-              )}
-            </AnimatePresence>
+          <Link to="/salir" className={`flex items-center mt-2 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors group ${isDesktopCollapsed ? 'h-10 w-10 justify-center' : 'h-12 px-3'}`}>
+             <LogOut size={20} className="shrink-0" />
+             {!isDesktopCollapsed && <span className="text-[13px] font-bold ml-4 whitespace-nowrap">Cerrar Sesión</span>}
           </Link>
         </div>
       </motion.aside>
 
-      <main className="flex-1 p-[1.8rem] min-w-0 h-screen overflow-y-auto scroll-smooth">
+      <main className="flex-1 pt-20 md:pt-6 p-6 md:p-8 min-w-0 h-screen overflow-y-auto bg-slate-50 dark:bg-[#121212] transition-colors">
         {children}
       </main>
-
     </div>
   );
 }
