@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 // Componentes
 import AdminLayout from './components/AdminLayout';
+import ScrollToTop from './components/ScrollToTop'; // Asegúrate de que la ruta sea correcta
 
 // Páginas
 import Inicio from './pages/Inicio';
@@ -11,53 +12,44 @@ import Horarios from './pages/Horarios';
 import Asistencias from './pages/Asistencias';
 import Reportes from './pages/Reportes';
 import Login from './pages/login';
-
-// Nuevas Páginas de Usuario
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 
 // ==========================================
-// 1. EL GUARDIA DE SEGURIDAD (Protected Route)
+// Protected Route
 // ==========================================
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  // Revisamos si existe la "llave" de acceso en el navegador
   const isAuthenticated = localStorage.getItem('syncLogic_auth') === 'true';
-  
-  // Si no está autenticado, lo mandamos al login de inmediato
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-  
-  // Si está autenticado, lo dejamos pasar al contenido
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
   return <>{children}</>;
 };
 
 // ==========================================
-// 2. COMPONENTE PARA CERRAR SESIÓN
+// Componente Logout
 // ==========================================
 const Logout = () => {
-  localStorage.removeItem('syncLogic_auth'); // Borramos la llave
-  return <Navigate to="/login" replace />;   // Lo mandamos al login
+  localStorage.removeItem('syncLogic_auth');
+  return <Navigate to="/login" replace />;
 };
 
 export default function App() {
   return (
     <BrowserRouter>
+      {/* DEBE IR AQUÍ: Dentro del BrowserRouter para acceder al historial 
+         pero fuera de las Routes para que no se renderice según la URL.
+      */}
+      <ScrollToTop />
+
       <Routes>
-        {/* RUTA PÚBLICA */}
         <Route path="/login" element={<Login />} />
-        
-        {/* RUTA PARA SALIR */}
         <Route path="/salir" element={<Logout />} />
 
-        {/* RUTAS PRIVADAS (Protegidas por el Guardia) */}
         <Route 
           path="/*" 
           element={
             <ProtectedRoute>
               <AdminLayout>
                 <Routes>
-                  {/* Rutas Principales del Menú */}
                   <Route path="/" element={<Inicio />} />
                   <Route path="/asistencias" element={<Asistencias />} />
                   <Route path="/empleados" element={<Empleados />} />

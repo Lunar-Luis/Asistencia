@@ -91,19 +91,18 @@ export default function Inicio() {
   const chartData = dashboardData?.chartData || [];
   const maxEmpleados = dashboardData?.stats.totalEmpleados || 10;
 
-  // FUNCIÓN generateLinePath ELIMINADA PORQUE YA NO USAMOS SVG LÍNEAS
-
   return (
     <main className="pb-8 max-w-[1600px] mx-auto">
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mb-8">
-        <h1 className="text-[2.2rem] sm:text-[3rem] md:text-[3.5rem] font-black tracking-tighter uppercase italic leading-[1.1] flex items-center gap-2">
+      {/* HEADER AJUSTADO: Título más pegado y Enter en la fecha */}
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mb-6">
+        <h1 className="text-[2.2rem] sm:text-[3rem] md:text-[3.5rem] font-black tracking-tighter uppercase italic leading-[0.9] flex items-center gap-2">
           <span className="text-slate-800 dark:text-white">Panel</span>
           <span className="bg-gradient-to-r from-primary via-indigo-900 to-primary dark:via-white bg-[length:200%_auto] bg-clip-text text-transparent inline-block not-italic py-1 px-2">
             Principal
           </span>
         </h1>
-        <p className="text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.3em] sm:tracking-[0.4em] mt-2">
-          Resumen Global de Asistencia - 12 Nov 2024
+        <p className="text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.3em] sm:tracking-[0.4em] mt-1 leading-relaxed">
+          Resumen Global de Asistencia <br className="block" />12/05/2024
         </p>
       </motion.div>
 
@@ -169,17 +168,14 @@ export default function Inicio() {
         </motion.div>
       )}
 
-      {/* NUEVA GRÁFICA: BARRAS AGRUPADAS */}
+      {/* GRÁFICA SEMANAL */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-        
         <div className="lg:col-span-2">
           <AnimatePresence mode="wait">
             {isLoading ? (
               <SkeletonChart />
             ) : (
               <motion.div {...animProps} transition={{ delay: 0.2 }} className={`${cardStyle} relative h-full flex flex-col min-h-[420px]`}>
-                
-                {/* Header Gráfica */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-4">
                   <div>
                     <h3 className="font-black uppercase italic tracking-tighter dark:text-white text-2xl text-slate-800">Tendencia Semanal</h3>
@@ -192,10 +188,7 @@ export default function Inicio() {
                   </div>
                 </div>
                 
-                {/* Contenedor principal de la gráfica */}
                 <div className="relative flex-1 w-full flex items-end justify-between mt-4 pb-8 border-b border-slate-100 dark:border-slate-800/50">
-                  
-                  {/* Líneas horizontales de guía */}
                   <div className="absolute inset-0 flex flex-col justify-between pointer-events-none pb-8">
                     {[100, 75, 50, 25, 0].map(p => (
                       <div key={p} className="w-full border-t border-dashed border-slate-200 dark:border-slate-800/80 flex items-center">
@@ -204,13 +197,10 @@ export default function Inicio() {
                     ))}
                   </div>
 
-                  {/* BARRAS DE DATOS */}
                   {chartData.map((data, i) => {
-                    // Calculamos porcentajes respecto al máximo
                     const h1 = (data.aTiempo / maxEmpleados) * 100;
                     const h2 = (data.tarde / maxEmpleados) * 100;
                     const h3 = (data.ausentes / maxEmpleados) * 100;
-                    
                     const isHovered = hoveredBar === i;
 
                     return (
@@ -220,7 +210,6 @@ export default function Inicio() {
                         onMouseEnter={() => setHoveredBar(i)}
                         onMouseLeave={() => setHoveredBar(null)}
                       >
-                        {/* Tooltip Dinámico */}
                         <AnimatePresence>
                           {isHovered && (
                             <motion.div initial={{ opacity: 0, y: 10, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.9 }}
@@ -237,19 +226,15 @@ export default function Inicio() {
                           )}
                         </AnimatePresence>
 
-                        {/* Agrupación de 3 Barras */}
                         <div className="w-full h-full flex items-end justify-center gap-[2px] sm:gap-1">
                           <motion.div initial={{ height: 0 }} animate={{ height: `${h1}%` }} transition={{ type: "spring", bounce: 0.3, delay: i * 0.05 }}
                             className="w-1/3 bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-t-sm sm:rounded-t-md hover:brightness-110 min-h-[4px]" />
-                          
                           <motion.div initial={{ height: 0 }} animate={{ height: `${h2}%` }} transition={{ type: "spring", bounce: 0.3, delay: 0.1 + (i * 0.05) }}
                             className="w-1/3 bg-gradient-to-t from-amber-500 to-amber-300 rounded-t-sm sm:rounded-t-md hover:brightness-110 min-h-[4px]" />
-                          
                           <motion.div initial={{ height: 0 }} animate={{ height: `${h3}%` }} transition={{ type: "spring", bounce: 0.3, delay: 0.2 + (i * 0.05) }}
                             className="w-1/3 bg-gradient-to-t from-red-500 to-red-400 rounded-t-sm sm:rounded-t-md hover:brightness-110 min-h-[4px]" />
                         </div>
 
-                        {/* Etiqueta Eje X */}
                         <span className={`absolute -bottom-8 text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-colors ${isHovered ? 'text-primary' : 'text-slate-400'}`}>
                           {data.dia.split(' ')[0]}
                         </span>
@@ -262,7 +247,6 @@ export default function Inicio() {
           </AnimatePresence>
         </div>
 
-        {/* ACCIONES RÁPIDAS */}
         <div className="lg:col-span-1">
           <AnimatePresence mode="wait">
             {isLoading ? (
