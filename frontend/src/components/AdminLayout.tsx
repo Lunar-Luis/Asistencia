@@ -130,7 +130,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <div className="flex flex-col py-6 w-full grow overflow-y-auto overflow-x-hidden gap-2">
           {menu.map(item => (
             <Link key={item.path} to={item.path} onClick={handleNavigation}
-              className={`group flex items-center h-14 relative font-semibold transition-colors w-full ${isDesktopCollapsed ? 'justify-center' : 'px-8'} ${isActive(item.path) ? 'text-primary dark:text-primary bg-primary/5 dark:bg-primary/10' : 'text-slate-500 hover:text-primary dark:hover:text-primary hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
+              className={`group flex items-center h-14 relative font-semibold transition-colors w-full ${isDesktopCollapsed ? 'justify-center' : 'px-8'} 
+                ${isActive(item.path) 
+                  ? 'text-primary dark:text-sky-100 bg-primary/5 dark:bg-slate-800' 
+                  : 'text-slate-500 hover:text-primary dark:hover:text-sky-100 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
             >
               {isActive(item.path) && <div className="absolute left-0 top-2 bottom-2 w-1.5 bg-primary rounded-r-md" />}
               <div className={`flex items-center justify-center shrink-0 ${isDesktopCollapsed ? 'group-hover:scale-110 transition-transform' : ''}`}>
@@ -143,30 +146,49 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
         <div className={`p-4 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-2 shrink-0 ${isDesktopCollapsed ? 'items-center pb-6' : ''}`}>
           <div className="hidden md:flex flex-col gap-2 w-full">
-            <Link to="/configuracion" className={`flex items-center h-12 rounded-xl text-slate-500 hover:text-primary dark:hover:text-primary dark:hover:bg-slate-800/50 transition-colors ${isDesktopCollapsed ? 'justify-center w-12 mx-auto' : 'px-4'}`}>
-               <Settings size={22} className="shrink-0" />
-               {!isDesktopCollapsed && <span className="text-[15px] font-semibold ml-4 whitespace-nowrap">Ajustes</span>}
+            
+            {/* AJUSTES AHORA ES REACTIVO AL isActive */}
+            <Link to="/configuracion" 
+              className={`group flex items-center relative h-12 rounded-xl transition-colors font-semibold 
+                ${isDesktopCollapsed ? 'justify-center w-12 mx-auto' : 'px-4 w-full'}
+                ${isActive('/configuracion') 
+                  ? 'text-primary dark:text-sky-100 bg-primary/5 dark:bg-slate-800' 
+                  : 'text-slate-500 hover:text-primary dark:hover:text-sky-100 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
+            >
+               {isActive('/configuracion') && <div className="absolute left-0 top-1 bottom-1 w-1 bg-primary rounded-r-md" />}
+               <Settings size={22} className={`shrink-0 ${isDesktopCollapsed ? 'group-hover:scale-110 transition-transform' : ''}`} />
+               {!isDesktopCollapsed && <span className="text-[15px] ml-4 whitespace-nowrap">Ajustes</span>}
             </Link>
 
-            <div className={`flex items-center w-full ${isDesktopCollapsed ? 'flex-col gap-4 py-2' : 'justify-between px-4 h-12'}`}>
-               <Link to="/perfil" className={`flex items-center gap-3 text-slate-500 hover:text-primary transition-colors ${isDesktopCollapsed ? 'bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl' : ''}`}>
-                 <UserCircle size={24} className="shrink-0" />
-                 {!isDesktopCollapsed && <span className="text-[15px] font-bold whitespace-nowrap text-slate-700 dark:text-slate-300">Admin</span>}
+            <div className={`flex items-center w-full ${isDesktopCollapsed ? 'flex-col gap-4 py-2' : 'justify-between px-2 h-12'}`}>
+               
+               {/* PERFIL AHORA ES REACTIVO AL isActive */}
+               <Link to="/perfil" 
+                  className={`group flex items-center relative transition-colors font-semibold 
+                    ${isDesktopCollapsed ? 'p-2.5 rounded-xl' : 'px-2 py-2 rounded-lg'}
+                    ${isActive('/perfil') 
+                      ? 'text-primary dark:text-sky-100 bg-primary/5 dark:bg-slate-800' 
+                      : 'text-slate-500 hover:text-primary dark:hover:text-sky-100 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
+                >
+                 {isActive('/perfil') && <div className="absolute left-0 top-1 bottom-1 w-1 bg-primary rounded-r-md" />}
+                 <UserCircle size={24} className={`shrink-0 ${isDesktopCollapsed ? 'group-hover:scale-110 transition-transform' : ''}`} />
+                 {!isDesktopCollapsed && <span className="text-[15px] font-bold whitespace-nowrap ml-3">Admin</span>}
                </Link>
-               <button onClick={() => setIsDark(!isDark)} className="p-2.5 rounded-xl text-slate-400 hover:text-primary transition-colors bg-slate-50 dark:bg-slate-800">
+
+               <button onClick={() => setIsDark(!isDark)} className="p-2.5 rounded-xl text-slate-400 hover:text-primary transition-colors bg-slate-50 dark:bg-slate-800 border border-transparent dark:hover:border-slate-700">
                  {isDark ? <Sun size={20} className="text-amber-500" /> : <Moon size={20} />}
                </button>
             </div>
           </div>
 
           <Link to="/salir" onClick={handleNavigation} className={`flex items-center mt-2 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors group ${isDesktopCollapsed ? 'h-12 w-12 mx-auto justify-center' : 'h-14 px-4'}`}>
-             <LogOut size={22} className="shrink-0" />
+             <LogOut size={22} className="shrink-0 group-hover:scale-110 transition-transform" />
              {!isDesktopCollapsed && <span className="text-[15px] font-bold ml-4 whitespace-nowrap">Cerrar Sesión</span>}
           </Link>
         </div>
       </motion.aside>
 
-      <main className="flex-1 pt-20 md:pt-6 p-6 md:p-8 min-w-0 h-screen overflow-y-auto bg-slate-50 dark:bg-slate-950 transition-colors">
+      <main className="flex-1 pt-20 md:pt-6 p-6 md:p-8 min-w-0 h-screen overflow-y-auto bg-slate-50 dark:bg-slate-950 transition-colors relative">
         {children}
       </main>
     </div>
