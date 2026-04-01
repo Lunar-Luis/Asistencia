@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 // Componentes
 import AdminLayout from './components/AdminLayout';
-import ScrollToTop from './components/ScrollToTop'; // Asegúrate de que la ruta sea correcta
+import ScrollToTop from './components/ScrollToTop';
 
 // Páginas
 import Inicio from './pages/Inicio';
@@ -14,6 +14,7 @@ import Reportes from './pages/Reportes';
 import Login from './pages/login';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
+import MonitoreoCamara from './pages/MonitoreoCamara'; // 1. IMPORTAR LA NUEVA PÁGINA
 
 // ==========================================
 // Protected Route
@@ -35,15 +36,15 @@ const Logout = () => {
 export default function App() {
   return (
     <BrowserRouter>
-      {/* DEBE IR AQUÍ: Dentro del BrowserRouter para acceder al historial 
-         pero fuera de las Routes para que no se renderice según la URL.
-      */}
       <ScrollToTop />
 
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/salir" element={<Logout />} />
 
+        {/* Todas las rutas dentro de path="/*" están protegidas 
+          y comparten el diseño del AdminLayout
+        */}
         <Route 
           path="/*" 
           element={
@@ -58,6 +59,8 @@ export default function App() {
                   <Route path="/reportes" element={<Reportes />} />
                   <Route path="/perfil" element={<Profile />} />
                   <Route path="/configuracion" element={<Settings />} />
+                  <Route path="/camara" element={<MonitoreoCamara />} /> 
+
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </AdminLayout>

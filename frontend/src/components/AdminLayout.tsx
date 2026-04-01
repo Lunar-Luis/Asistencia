@@ -4,11 +4,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LayoutDashboard, Users, Briefcase, Clock,
   Calendar, FileBarChart, LogOut, Sun, Moon, Settings, UserCircle,
-  Menu
+  Menu, Camera
 } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
+  
+  // Función para determinar si una ruta está activa
   const isActive = (path: string) => location.pathname === path;
   
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
@@ -58,6 +60,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { path: '/cargos', icon: <Briefcase size={24} />, text: 'Cargos' },
     { path: '/horarios', icon: <Calendar size={24} />, text: 'Horarios' },
     { path: '/reportes', icon: <FileBarChart size={24} />, text: 'Reportes' },
+    { path: '/camara', icon: <Camera size={24} />, text: 'Monitoreo' }, // RUTA DE CÁMARA
   ];
 
   return (
@@ -88,10 +91,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }} transition={{ duration: 0.2 }}
                 className="absolute right-0 top-12 w-52 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50 flex flex-col"
               >
-                <Link to="/perfil" onClick={handleNavigation} className="flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors text-slate-600 dark:text-slate-300">
+                <Link to="/perfil" onClick={handleNavigation} className={`flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${isActive('/perfil') ? 'text-primary' : 'text-slate-600 dark:text-slate-300'}`}>
                   <UserCircle size={20} /> <span className="text-[15px] font-bold">Mi Perfil</span>
                 </Link>
-                <Link to="/configuracion" onClick={handleNavigation} className="flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-b border-slate-100 dark:border-slate-700 text-slate-600 dark:text-slate-300">
+                <Link to="/configuracion" onClick={handleNavigation} className={`flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-b border-slate-100 dark:border-slate-700 ${isActive('/configuracion') ? 'text-primary' : 'text-slate-600 dark:text-slate-300'}`}>
                   <Settings size={20} /> <span className="text-[15px] font-bold">Ajustes</span>
                 </Link>
                 <Link to="/salir" onClick={handleNavigation} className="flex items-center gap-3 px-4 py-3.5 hover:bg-red-50 dark:hover:bg-danger/10 transition-colors text-red-500 dark:text-danger">
@@ -103,25 +106,23 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      {/* OVERLAY OSCURO MÓVIL (Sidebar) */}
+      {/* OVERLAY MÓVIL */}
       <AnimatePresence>
         {isMobileOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsMobileMenuOpen(false)} className="md:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40" />
         )}
       </AnimatePresence>
 
-      {/* MENÚ LATERAL */}
+      {/* SIDEBAR */}
       <motion.aside
         initial={false}
         animate={{ width: isDesktopCollapsed ? "6rem" : "17rem", x: typeof window !== 'undefined' && window.innerWidth < 768 ? (isMobileOpen ? 0 : "-100%") : 0 }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
         className="fixed md:relative top-0 left-0 h-full flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 z-50 shrink-0 transition-colors"
       >
-        <div onClick={handleLogoClick} title={isDesktopCollapsed ? "Expandir menú" : "Colapsar menú"}
-          className={`w-full flex shrink-0 border-b border-slate-100 dark:border-slate-800 items-center justify-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${isDesktopCollapsed ? 'h-24' : 'h-28'} md:flex hidden`}
-        >
+        <div onClick={handleLogoClick} className={`w-full flex shrink-0 border-b border-slate-100 dark:border-slate-800 items-center justify-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${isDesktopCollapsed ? 'h-24' : 'h-28'} md:flex hidden`}>
           <div className={`rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0 border border-slate-100 dark:border-slate-800 ${isDesktopCollapsed ? 'w-12 h-12' : 'w-20 h-20'}`}>
-            <img src="/images/logo.png" alt="Logo CMBT" className={`object-contain transition-all ${isDesktopCollapsed ? 'w-8 h-8' : 'w-14 h-14'}`} />
+            <img src="/images/logo.png" alt="Logo" className={`object-contain transition-all ${isDesktopCollapsed ? 'w-8 h-8' : 'w-14 h-14'}`} />
           </div>
         </div>
 
@@ -146,9 +147,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
         <div className={`p-4 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-2 shrink-0 ${isDesktopCollapsed ? 'items-center pb-6' : ''}`}>
           <div className="hidden md:flex flex-col gap-2 w-full">
-            
-            {/* AJUSTES AHORA ES REACTIVO AL isActive */}
-            <Link to="/configuracion" 
+            <Link to="/configuracion" onClick={handleNavigation}
               className={`group flex items-center relative h-12 rounded-xl transition-colors font-semibold 
                 ${isDesktopCollapsed ? 'justify-center w-12 mx-auto' : 'px-4 w-full'}
                 ${isActive('/configuracion') 
@@ -157,13 +156,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             >
                {isActive('/configuracion') && <div className="absolute left-0 top-1 bottom-1 w-1 bg-primary rounded-r-md" />}
                <Settings size={22} className={`shrink-0 ${isDesktopCollapsed ? 'group-hover:scale-110 transition-transform' : ''}`} />
-               {!isDesktopCollapsed && <span className="text-[15px] ml-4 whitespace-nowrap">Ajustes</span>}
+               {!isDesktopCollapsed && <span className="text-[15px] font-semibold ml-4 whitespace-nowrap">Ajustes</span>}
             </Link>
 
             <div className={`flex items-center w-full ${isDesktopCollapsed ? 'flex-col gap-4 py-2' : 'justify-between px-2 h-12'}`}>
-               
-               {/* PERFIL AHORA ES REACTIVO AL isActive */}
-               <Link to="/perfil" 
+               <Link to="/perfil" onClick={handleNavigation}
                   className={`group flex items-center relative transition-colors font-semibold 
                     ${isDesktopCollapsed ? 'p-2.5 rounded-xl' : 'px-2 py-2 rounded-lg'}
                     ${isActive('/perfil') 
@@ -175,7 +172,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                  {!isDesktopCollapsed && <span className="text-[15px] font-bold whitespace-nowrap ml-3">Admin</span>}
                </Link>
 
-               <button onClick={() => setIsDark(!isDark)} className="p-2.5 rounded-xl text-slate-400 hover:text-primary transition-colors bg-slate-50 dark:bg-slate-800 border border-transparent dark:hover:border-slate-700">
+               <button onClick={() => setIsDark(!isDark)} className="p-2.5 rounded-xl text-slate-400 hover:text-primary transition-colors bg-slate-50 dark:bg-slate-800 border border-transparent">
                  {isDark ? <Sun size={20} className="text-amber-500" /> : <Moon size={20} />}
                </button>
             </div>
