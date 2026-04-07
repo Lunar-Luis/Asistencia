@@ -18,7 +18,8 @@ public class CargoServiceImpl implements CargoService {
 
     @Override
     public List<Cargo> obtenerCargosActivos() {
-        return cargoRepository.findAllByActivoTrue();
+        // Borramos el "findAllByActivoTrue()" y usamos "findAll()"
+        return cargoRepository.findAll();
     }
 
     @Override
@@ -38,6 +39,12 @@ public class CargoServiceImpl implements CargoService {
         Cargo cargoExistente = obtenerPorId(id);
         cargoExistente.setNombre(cargoDetalles.getNombre());
         cargoExistente.setDescripcion(cargoDetalles.getDescripcion());
+
+        // ---> AGREGA ESTA LÍNEA <---
+        if (cargoDetalles.getActivo() != null) {
+            cargoExistente.setActivo(cargoDetalles.getActivo());
+        }
+
         return cargoRepository.save(cargoExistente);
     }
 

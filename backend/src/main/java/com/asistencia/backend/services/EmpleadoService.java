@@ -8,5 +8,6 @@ public interface EmpleadoService {
     List<Empleado> obtenerEmpleadosActivos();
     Empleado obtenerPorId(Long id);
     Empleado crearEmpleado(EmpleadoRequestDTO dto);
+    Empleado actualizarEmpleado(Long id, EmpleadoRequestDTO dto);
     void desactivarEmpleado(Long id);
 }

@@ -35,4 +35,9 @@ public class EmpleadoController {
         empleadoService.desactivarEmpleado(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Empleado> actualizarEmpleado(@PathVariable Long id, @RequestBody EmpleadoRequestDTO dto) {
+        return ResponseEntity.ok(empleadoService.actualizarEmpleado(id, dto));
+    }
 }

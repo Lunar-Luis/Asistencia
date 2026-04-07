@@ -9,5 +9,6 @@ public record EmpleadoRequestDTO(
         String telefono,
         String nfcUid,
         Long cargoId,
-        Long horarioId
+        Long horarioId,
+        Boolean activo
 ) {}

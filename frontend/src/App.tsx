@@ -14,22 +14,25 @@ import Reportes from './pages/Reportes';
 import Login from './pages/login';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
-import MonitoreoCamara from './pages/MonitoreoCamara'; // 1. IMPORTAR LA NUEVA PÁGINA
+import MonitoreoCamara from './pages/MonitoreoCamara';
 
 // ==========================================
-// Protected Route
+// Protected Route (AHORA VALIDA EL TOKEN JWT)
 // ==========================================
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const isAuthenticated = localStorage.getItem('syncLogic_auth') === 'true';
+  // Comprobamos si existe el token en lugar de la variable de prueba
+  const isAuthenticated = !!localStorage.getItem('token');
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   return <>{children}</>;
 };
 
 // ==========================================
-// Componente Logout
+// Componente Logout (LIMPIA TODOS LOS DATOS REAELS)
 // ==========================================
 const Logout = () => {
-  localStorage.removeItem('syncLogic_auth');
+  localStorage.removeItem('token');
+  localStorage.removeItem('username');
+  localStorage.removeItem('rol');
   return <Navigate to="/login" replace />;
 };
 
@@ -37,14 +40,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
-
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/salir" element={<Logout />} />
 
-        {/* Todas las rutas dentro de path="/*" están protegidas 
-          y comparten el diseño del AdminLayout
-        */}
+        {/* Todas las rutas dentro de path="/*" están protegidas */}
         <Route 
           path="/*" 
           element={

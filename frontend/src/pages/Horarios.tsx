@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Clock, Edit, Trash2, Search, Sunrise, Moon, CalendarDays, Watch, CheckCircle2, Filter, Users, PowerOff } from 'lucide-react';
+import { Plus, Clock, Edit, Search, Sunrise, Moon, CalendarDays, Watch, CheckCircle2, Filter, Users, PowerOff } from 'lucide-react';
 import Swal from 'sweetalert2';
 
-// IMPORTAMOS LA API Y EL TIPO
-import { api, type Horario } from '../services/mockData';
+// Importamos la API que creamos
+import * as api from '../services/api';
+import type { Horario } from '../services/api';
 
 const animProps = { initial: { opacity: 0, y: 15, scale: 0.98 }, animate: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.4, ease: "easeOut" as const } }, exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2 } } };
 const cardStyle = "bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm p-6 md:p-8 transition-colors relative";
@@ -37,9 +38,19 @@ const SkeletonHorario = () => (
 
 const diasSemana = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
-// ESTADO INICIAL VACÍO PARA EL FORMULARIO
-const emptyForm = {
-  id: 0, nombre: '', tipo: 'Normal', entrada: '', salida: '', tolerancia: 0, dias: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'], status: 'Activo' as 'Activo'|'Inactivo', empleados: 0
+// Estado adaptado a la forma de la UI (luego lo convertimos a la Interfaz de la API al enviar)
+interface FormState {
+  id: number;
+  nombre: string;
+  entrada: string;
+  salida: string;
+  tolerancia: number;
+  dias: string[];
+  activo: boolean;
+}
+
+const emptyForm: FormState = {
+  id: 0, nombre: '', entrada: '', salida: '', tolerancia: 0, dias: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'], activo: true
 };
 
 export default function Horarios() {
@@ -49,27 +60,31 @@ export default function Horarios() {
   const [filters, setFilters] = useState({ search: '', status: 'all' });
 
   const [horarios, setHorarios] = useState<Horario[]>([]);
-  
-  // ESTADO PARA EL FORMULARIO
-  const [formData, setFormData] = useState(emptyForm);
+  const [formData, setFormData] = useState<FormState>(emptyForm);
+
+  const fetchDatos = async () => {
+    setIsLoading(true);
+    try {
+      const data = await api.getHorarios();
+      setHorarios(data);
+    } catch {
+      Swal.fire("Error", "No se pudieron cargar los horarios", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchDatos = async () => {
-      setIsLoading(true);
-      try {
-        const data = await api.getHorarios();
-        setHorarios(data);
-      } catch (error) {
-        console.error("Error cargando horarios", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchDatos();
   }, []);
 
   const filteredHorarios = useMemo(() => {
-    return horarios.filter(h => h.nombre.toLowerCase().includes(filters.search.toLowerCase()) && (filters.status === 'all' || h.status.toLowerCase() === filters.status.toLowerCase()));
+    return horarios.filter(h => 
+      h.nombre.toLowerCase().includes(filters.search.toLowerCase()) && 
+      (filters.status === 'all' || 
+       (filters.status === 'activo' && h.activo) || 
+       (filters.status === 'inactivo' && !h.activo))
+    );
   }, [horarios, filters]);
 
   const formatTime = (time24: string) => {
@@ -80,18 +95,28 @@ export default function Horarios() {
     return `${(h % 12 || 12).toString().padStart(2, '0')}:${minutes} ${ampm}`;
   };
 
-  const formatDias = (dias: string[]) => {
+  const formatDias = (diasString: string) => {
+    if (!diasString) return '';
+    const dias = diasString.split(',');
     if (dias.length === 7) return 'Todos los días';
     if (dias.length === 5 && !dias.includes('Sáb') && !dias.includes('Dom')) return 'Lunes a Viernes';
     if (dias.length === 6 && !dias.includes('Dom')) return 'Lunes a Sábado';
-    return dias.join(', ');
+    return diasString;
   };
 
   // --- MANEJO DEL MODAL Y FORMULARIO ---
   const handleOpenModal = (mode: 'add' | 'edit', horario?: Horario) => {
     setModalMode(mode);
     if (mode === 'edit' && horario) {
-      setFormData({ ...horario });
+      setFormData({ 
+        id: horario.id || 0,
+        nombre: horario.nombre,
+        entrada: horario.horaEntrada.substring(0, 5), // Cortar "08:00:00" a "08:00" para el input HTML
+        salida: horario.horaSalida.substring(0, 5),
+        tolerancia: horario.toleranciaMinutos,
+        dias: horario.diasLaborables.split(','), // Convertir string a array para los botones visuales
+        activo: horario.activo ?? true
+      });
     } else {
       setFormData(emptyForm);
     }
@@ -109,73 +134,90 @@ export default function Horarios() {
       if (isSelected) {
         return { ...prev, dias: prev.dias.filter(d => d !== dia) };
       } else {
-        // Mantenemos el orden de los días
         const newDias = [...prev.dias, dia].sort((a, b) => diasSemana.indexOf(a) - diasSemana.indexOf(b));
         return { ...prev, dias: newDias };
       }
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.dias.length === 0) {
       Swal.fire({ icon: 'warning', title: 'Atención', text: 'Debes seleccionar al menos un día laborable.' });
       return;
     }
     
-    setIsModalOpen(false);
     const isDark = document.documentElement.classList.contains('dark');
     
-    Swal.fire({ 
-      title: modalMode === 'add' ? '¡Horario Creado!' : '¡Horario Actualizado!', 
-      text: `El turno ${formData.nombre} ha sido guardado.`,
-      icon: 'success', 
-      background: isDark ? '#0f172a' : '#fff', 
-      color: isDark ? '#f8fafc' : '#334155', 
-      customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' } 
-    });
-  };
+    // Preparar datos para Spring Boot
+    const horarioAEnviar: Horario = {
+      nombre: formData.nombre,
+      // Spring Boot requiere formato HH:mm:ss, así que le agregamos los segundos si no los tiene
+      horaEntrada: formData.entrada.length === 5 ? `${formData.entrada}:00` : formData.entrada,
+      horaSalida: formData.salida.length === 5 ? `${formData.salida}:00` : formData.salida,
+      toleranciaMinutos: Number(formData.tolerancia),
+      diasLaborables: formData.dias.join(',') // Convertimos el array a "Lun,Mar,Mié"
+    };
 
-  // --- MANEJO DE ELIMINAR / ESTADO ---
-  const handleDelete = (horario: Horario) => {
-    const isDark = document.documentElement.classList.contains('dark');
-    
-    if (horario.empleados > 0) {
+    try {
+      if (modalMode === 'add') {
+        await api.crearHorario(horarioAEnviar);
+      } else {
+        await api.actualizarHorario(formData.id, horarioAEnviar);
+      }
+
+      setIsModalOpen(false);
+      fetchDatos();
+
       Swal.fire({ 
-        title: 'Acción Denegada', 
-        html: `No puedes eliminar el <b>${horario.nombre}</b> porque hay <b>${horario.empleados} empleados</b> asignados a él.<br><br>Sugerencia: <b>Desactívalo</b> para que no se le pueda asignar a nuevos empleados.`, 
-        icon: 'error', 
-        showCancelButton: true, 
-        confirmButtonColor: '#f59e0b', 
-        cancelButtonColor: '#94a3b8', 
-        confirmButtonText: 'Desactivar', 
-        cancelButtonText: 'Cancelar',
+        title: modalMode === 'add' ? '¡Horario Creado!' : '¡Horario Actualizado!', 
+        text: `El turno ${formData.nombre} ha sido guardado.`,
+        icon: 'success', 
         background: isDark ? '#0f172a' : '#fff', 
         color: isDark ? '#f8fafc' : '#334155', 
         customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' } 
-      }).then((result) => {
-        if (result.isConfirmed) {
-          handleToggleStatus(horario.id, horario.nombre, 'Activo');
-        }
       });
-      return;
+    } catch {
+      Swal.fire("Error", "Hubo un problema al guardar el horario.", "error");
     }
-
-    Swal.fire({ title: '¿Eliminar horario?', text: `Eliminarás el ${horario.nombre}.`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#ff7782', cancelButtonColor: '#94a3b8', confirmButtonText: 'Sí, eliminar', background: isDark ? '#0f172a' : '#fff', color: isDark ? '#f8fafc' : '#334155', customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' } }).then((result) => {
-      if (result.isConfirmed) {
-        setHorarios(horarios.filter(h => h.id !== horario.id));
-        Swal.fire({ title: 'Eliminado', icon: 'success', background: isDark ? '#0f172a' : '#fff', color: isDark ? '#f8fafc' : '#334155', customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' }});
-      }
-    });
   };
 
-  const handleToggleStatus = (id: number, nombre: string, currentStatus: string) => {
+  // --- MANEJO DE ESTADO ---
+  const handleToggleStatus = (horario: Horario) => {
     const isDark = document.documentElement.classList.contains('dark');
-    const isActivating = currentStatus === 'Inactivo';
-    Swal.fire({ title: isActivating ? '¿Activar horario?' : '¿Desactivar horario?', text: isActivating ? `El ${nombre} volverá a estar disponible.` : `El ${nombre} dejará de estar disponible para asignaciones.`, icon: isActivating ? 'info' : 'warning', showCancelButton: true, confirmButtonColor: isActivating ? '#10b981' : '#f59e0b', cancelButtonColor: '#94a3b8', confirmButtonText: isActivating ? 'Sí, activar' : 'Sí, desactivar', background: isDark ? '#0f172a' : '#fff', color: isDark ? '#f8fafc' : '#334155', customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' } }).then((result) => {
+    const isActivating = !horario.activo;
+
+    Swal.fire({ 
+      title: isActivating ? '¿Activar horario?' : '¿Desactivar horario?', 
+      text: isActivating ? `El ${horario.nombre} volverá a estar disponible.` : `¿Seguro que deseas desactivar ${horario.nombre}?`, 
+      icon: isActivating ? 'info' : 'warning', 
+      showCancelButton: true, 
+      confirmButtonColor: isActivating ? '#10b981' : '#f59e0b', 
+      cancelButtonColor: '#94a3b8', 
+      confirmButtonText: isActivating ? 'Sí, activar' : 'Sí, desactivar', 
+      background: isDark ? '#0f172a' : '#fff', 
+      color: isDark ? '#f8fafc' : '#334155', 
+      customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' } 
+    }).then(async (result) => {
       if (result.isConfirmed) {
-        setHorarios(horarios.map(h => h.id === id ? { ...h, status: isActivating ? 'Activo' : 'Inactivo' } : h));
-        Swal.fire({ title: isActivating ? 'Activado' : 'Desactivado', icon: 'success', background: isDark ? '#0f172a' : '#fff', color: isDark ? '#f8fafc' : '#334155', customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' } });
+        try {
+          if (isActivating) {
+            await api.actualizarHorario(horario.id!, { ...horario, activo: true });
+          } else {
+            await api.desactivarHorario(horario.id!);
+          }
+          fetchDatos();
+
+          Swal.fire({ 
+            title: isActivating ? 'Activado' : 'Desactivado', 
+            icon: 'success', 
+            background: isDark ? '#0f172a' : '#fff', 
+            color: isDark ? '#f8fafc' : '#334155', 
+            customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' } 
+          });
+        } catch {
+          Swal.fire("Error", "No se pudo cambiar el estado.", "error");
+        }
       }
     });
   };
@@ -227,35 +269,34 @@ export default function Horarios() {
           ) : (
             <AnimatePresence mode="popLayout">
               {filteredHorarios.map((horario) => (
-                <motion.div key={horario.id} layout {...animProps} className={`${cardStyle} group flex flex-col h-full ${actionHoverEffect} ${horario.status === 'Inactivo' ? 'opacity-75 hover:opacity-100 grayscale-[0.3]' : ''}`}>
-                  <div className={`absolute top-6 right-6 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase ${horario.status === 'Activo' ? 'bg-emerald-50 text-emerald-600 dark:bg-success/10 dark:text-success' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
-                    ● {horario.status}
+                <motion.div key={horario.id} layout {...animProps} className={`${cardStyle} group flex flex-col h-full ${actionHoverEffect} ${!horario.activo ? 'opacity-75 hover:opacity-100 grayscale-[0.3]' : ''}`}>
+                  <div className={`absolute top-6 right-6 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase ${horario.activo ? 'bg-emerald-50 text-emerald-600 dark:bg-success/10 dark:text-success' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+                    ● {horario.activo ? 'Activo' : 'Inactivo'}
                   </div>
 
                   <div className="flex items-start gap-4 mb-6 pt-1">
                     <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0 transition-transform group-hover:scale-105"><Clock size={26} /></div>
                     <div className="min-w-0 pr-16 pt-1">
                       <h3 className="text-[17px] font-bold text-slate-800 dark:text-white leading-tight truncate">{horario.nombre}</h3>
-                      {/* Eliminado el <p> que mostraba el 'tipo' para evitar redundancia */}
                       <div className="flex flex-wrap items-center gap-4 text-[12px] font-semibold text-slate-600 dark:text-slate-300 mt-2">
-                        <span className="flex items-center gap-1.5"><Sunrise size={16} className="text-emerald-500"/> {formatTime(horario.entrada)}</span>
-                        <span className="flex items-center gap-1.5"><Moon size={16} className="text-indigo-500"/> {formatTime(horario.salida)}</span>
+                        <span className="flex items-center gap-1.5"><Sunrise size={16} className="text-emerald-500"/> {formatTime(horario.horaEntrada)}</span>
+                        <span className="flex items-center gap-1.5"><Moon size={16} className="text-indigo-500"/> {formatTime(horario.horaSalida)}</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-4 pt-5 border-t border-slate-50 dark:border-slate-800/50 flex-1 mb-6">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-500 dark:text-slate-400 flex items-center gap-2 font-medium"><CalendarDays size={16}/> Días Laborables</span>
-                      <span className="font-semibold text-slate-700 dark:text-slate-200 truncate max-w-[140px] text-right">{formatDias(horario.dias)}</span>
+                      <span className="text-slate-500 dark:text-slate-400 flex items-center gap-2 font-medium"><CalendarDays size={16}/> Días</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-200 truncate max-w-[140px] text-right">{formatDias(horario.diasLaborables)}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-slate-500 dark:text-slate-400 flex items-center gap-2 font-medium"><Users size={16}/> Empleados</span>
-                      <span className="font-semibold text-slate-700 dark:text-slate-200">{horario.empleados} asignados</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-200">{horario.empleadosCount || 0} asignados</span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-slate-500 dark:text-slate-400 flex items-center gap-2 font-medium"><Watch size={16}/> Tolerancia</span>
-                      <span className="font-semibold text-amber-500 dark:text-warning">{horario.tolerancia} min</span>
+                      <span className="font-semibold text-amber-500 dark:text-warning">{horario.toleranciaMinutos} min</span>
                     </div>
                   </div>
 
@@ -263,12 +304,15 @@ export default function Horarios() {
                     <button onClick={() => handleOpenModal('edit', horario)} className="flex-1 flex justify-center items-center gap-1.5 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 py-3 rounded-xl text-[11px] font-bold uppercase hover:bg-primary hover:text-white dark:hover:bg-primary transition-all duration-150 border border-transparent hover:border-primary/20">
                       <Edit size={14} /> <span className="italic truncate">Editar</span>
                     </button>
-                    <button onClick={() => handleToggleStatus(horario.id, horario.nombre, horario.status)} className={`flex-1 flex justify-center items-center gap-1.5 py-3 rounded-xl text-[11px] font-bold uppercase transition-all border border-transparent ${horario.status === 'Activo' ? 'bg-amber-50 dark:bg-warning/10 text-amber-600 dark:text-warning hover:bg-amber-500 hover:text-white dark:hover:bg-warning' : 'bg-emerald-50 dark:bg-success/10 text-emerald-600 dark:text-success hover:bg-emerald-500 hover:text-white dark:hover:bg-success'}`}>
-                      {horario.status === 'Activo' ? <><PowerOff size={14} /> <span className="italic truncate">Desactivar</span></> : <><CheckCircle2 size={14} /> <span className="italic truncate">Activar</span></>}
-                    </button>
-                    <button onClick={() => handleDelete(horario)} className="w-12 flex justify-center items-center shrink-0 bg-red-50 dark:bg-danger/10 text-red-500 dark:text-danger rounded-xl hover:bg-red-500 hover:text-white dark:hover:bg-danger transition-all border border-transparent hover:border-red-200">
-                      <Trash2 size={16} />
-                    </button>
+                    {horario.activo ? (
+                      <button onClick={() => handleToggleStatus(horario)} className="flex-1 flex justify-center items-center gap-1.5 py-3 rounded-xl text-[11px] font-bold uppercase transition-all border border-transparent bg-amber-50 dark:bg-warning/10 text-amber-600 dark:text-warning hover:bg-amber-500 hover:text-white dark:hover:bg-warning">
+                        <PowerOff size={14} /> <span className="italic truncate">Desactivar</span>
+                      </button>
+                    ) : (
+                      <button onClick={() => handleToggleStatus(horario)} className="flex-1 flex justify-center items-center gap-1.5 py-3 rounded-xl text-[11px] font-bold uppercase transition-all border border-transparent bg-emerald-50 dark:bg-success/10 text-emerald-600 dark:text-success hover:bg-emerald-500 hover:text-white dark:hover:bg-success">
+                        <CheckCircle2 size={14} /> <span className="italic truncate">Activar</span>
+                      </button>
+                    )}
                   </div>
                 </motion.div>
               ))}
@@ -348,19 +392,6 @@ export default function Horarios() {
                   </div>
                 </div>
                 
-                {modalMode === 'add' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-                    <div className="p-5 bg-emerald-50 dark:bg-success/10 rounded-2xl border border-emerald-100 dark:border-success/20 text-center">
-                      <label className="text-[10px] font-bold uppercase text-emerald-600 dark:text-success mb-2 block">Estado Inicial</label>
-                      <button type="button" className="flex items-center justify-center gap-1.5 text-xs font-bold uppercase text-emerald-600 dark:text-success w-full"><CheckCircle2 size={18}/> Activo</button>
-                    </div>
-                    <div className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl flex flex-col items-center justify-center border border-slate-100 dark:border-slate-800">
-                      <span className="text-2xl font-bold text-slate-700 dark:text-slate-200">0</span>
-                      <span className="text-[9px] font-semibold uppercase text-slate-500 dark:text-slate-400 mt-1">Empleados Asignados</span>
-                    </div>
-                  </div>
-                )}
-
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
                   <button type="button" onClick={() => setIsModalOpen(false)} className="w-full sm:flex-1 py-4 rounded-xl sm:rounded-2xl font-bold uppercase text-[11px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-red-50 hover:text-red-500 dark:hover:bg-danger/10 dark:hover:text-danger transition-all border border-transparent hover:border-red-200 dark:hover:border-danger/20">Cancelar</button>
                   <button type="submit" className="w-full sm:flex-[2] py-4 bg-primary hover:bg-indigo-600 text-white rounded-xl sm:rounded-2xl font-bold uppercase text-[12px] tracking-widest shadow-lg shadow-primary/30 transition-colors">

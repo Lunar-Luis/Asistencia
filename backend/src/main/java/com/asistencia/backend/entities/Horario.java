@@ -3,6 +3,7 @@ package com.asistencia.backend.entities;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalTime;
+import org.hibernate.annotations.Formula;
 
 @Entity
 @Table(name = "horarios")
@@ -30,4 +31,8 @@ public class Horario {
 
     @Column(nullable = false)
     private Boolean activo = true;
+
+    // Ejecuta código SQL puro para contar los empleados vinculados a este horario que estén activos
+    @Formula("(SELECT COUNT(e.id) FROM empleados e WHERE e.horario_id = id AND e.activo = true)")
+    private Integer empleadosCount;
 }

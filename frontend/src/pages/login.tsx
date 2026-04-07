@@ -2,18 +2,17 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { User, Lock, Eye, EyeOff, Mail, AlertCircle, CheckCircle2, ArrowRight, Loader2, ArrowLeft } from 'lucide-react';
+import { loginAPI } from '../services/api'; // <--- IMPORTACIÓN DE LA API
 
 // --- COMPONENTE SKELETON PARA EL LOGIN ---
 const LoginSkeleton = () => (
   <div className="w-full max-w-[400px] p-6 relative z-10 animate-pulse">
     <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
-      {/* Logo y Título falso */}
       <div className="flex flex-col items-center justify-center mb-8">
         <div className="w-20 h-20 bg-slate-200 rounded-full mb-4"></div>
         <div className="w-32 h-6 bg-slate-200 rounded mb-2"></div>
         <div className="w-24 h-3 bg-slate-200 rounded"></div>
       </div>
-      {/* Inputs falsos */}
       <div className="space-y-5">
         <div className="w-full h-12 bg-slate-200 rounded-xl"></div>
         <div className="w-full h-12 bg-slate-200 rounded-xl"></div>
@@ -21,7 +20,6 @@ const LoginSkeleton = () => (
           <div className="w-20 h-4 bg-slate-200 rounded"></div>
           <div className="w-24 h-4 bg-slate-200 rounded"></div>
         </div>
-        {/* Botón falso */}
         <div className="w-full h-12 bg-slate-300 rounded-xl mt-4"></div>
       </div>
     </div>
@@ -29,7 +27,7 @@ const LoginSkeleton = () => (
 );
 
 export default function Login() {
-  const [isPageLoading, setIsPageLoading] = useState(true); // <-- ESTADO DEL SKELETON
+  const [isPageLoading, setIsPageLoading] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
@@ -39,11 +37,10 @@ export default function Login() {
   
   const navigate = useNavigate();
 
-  // Simula la verificación de sesión inicial al cargar la página
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsPageLoading(false);
-    }, 500); // Muestra el Skeleton por 1 segundo
+    }, 500); 
     return () => clearTimeout(timer);
   }, []);
 
@@ -52,17 +49,35 @@ export default function Login() {
     setTimeout(() => setToast(null), 4000);
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  // --- NUEVA LÓGICA DE LOGIN CONECTADA A SPRING BOOT ---
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (!email || !password) {
       showToast('Por favor, ingrese sus credenciales.', 'error');
       return;
     }
+    
     setIsAuthenticating(true);
-    setTimeout(() => {
-      localStorage.setItem('syncLogic_auth', 'true');
+    
+    try {
+      // 1. Llamamos a nuestra API
+      const data = await loginAPI(email, password);
+
+      // 2. Si es exitoso, guardamos el Token JWT y los datos reales
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('username', data.username);
+      localStorage.setItem('rol', data.rol);
+
+      // 3. Mostramos éxito y redirigimos
+      showToast('¡Bienvenido!', 'success');
       navigate('/');
-    }, 1000);
+      
+    } catch {
+      // Si el backend nos rechaza (contraseña incorrecta, usuario no existe)
+      showToast('Usuario o contraseña incorrectos.', 'error');
+      setIsAuthenticating(false); // Detenemos el spinner del botón
+    }
   };
 
   const handleRecoverPassword = (e: React.FormEvent) => {
@@ -92,7 +107,6 @@ export default function Login() {
         </AnimatePresence>
       </div>
 
-      {/* LÓGICA DEL SKELETON VS FORMULARIO */}
       {isPageLoading ? (
         <LoginSkeleton />
       ) : (

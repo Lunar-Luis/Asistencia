@@ -1,13 +1,14 @@
 import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, User, IdCard, Mail, Phone, Clock, Activity, Edit, Trash2, Search, Filter, ArrowUpDown, ImagePlus, CreditCard, PowerOff, CheckCircle2, Wifi } from 'lucide-react';
+import { Plus, User, IdCard, Mail, Phone, Activity, Edit, Search, Filter, ImagePlus, CreditCard, PowerOff, CheckCircle2, Wifi, } from 'lucide-react';
 import Swal from 'sweetalert2';
 
-import { api, type Empleado } from '../services/mockData';
+import * as api from '../services/api';
+import type { Empleado, EmpleadoRequest, Cargo, Horario } from '../services/api';
 
 const animProps = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.4 } };
 const cardStyle = "bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm p-5 transition-colors relative";
-const actionHoverEffect = "transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 dark:hover:bg-slate-800/50";
+const actionHoverEffect = "transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 dark:hover:bg-slate-800/50 cursor-pointer";
 const inputStyle = "w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl outline-none text-[13px] font-bold text-slate-700 dark:text-white border border-transparent focus:border-primary/40 focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer";
 const optionClassName = "bg-white dark:bg-slate-800 text-slate-700 dark:text-white font-bold py-2";
 
@@ -16,14 +17,12 @@ const SkeletonCard = () => (
     <div className="absolute top-5 right-5 w-16 h-5 bg-slate-200 dark:bg-slate-800 rounded-full"></div>
     <div className="flex items-center gap-4 mb-5"><div className="w-16 h-16 rounded-[1rem] bg-slate-200 dark:bg-slate-800 shrink-0"></div><div className="space-y-2 w-full"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-3/4"></div><div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-1/2"></div></div></div>
     <div className="space-y-3 mb-5 flex-1"><div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-full"></div><div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-5/6"></div><div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-4/6"></div></div>
-    <div className="grid grid-cols-2 gap-4 py-3 border-t border-slate-50 dark:border-slate-800/50 mb-4"><div><div className="h-2 bg-slate-200 dark:bg-slate-800 rounded w-1/2 mb-2"></div><div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-3/4"></div></div><div className="flex flex-col items-end"><div className="h-2 bg-slate-200 dark:bg-slate-800 rounded w-1/2 mb-2"></div><div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-3/4"></div></div></div>
-    <div className="flex gap-2 w-full pt-4 border-t border-slate-50 dark:border-slate-800/50 mt-auto"><div className="h-10 bg-slate-200 dark:bg-slate-800 rounded-xl flex-1"></div><div className="h-10 bg-slate-200 dark:bg-slate-800 rounded-xl flex-1"></div><div className="h-10 bg-slate-200 dark:bg-slate-800 rounded-xl w-12 shrink-0"></div></div>
+    <div className="flex gap-2 w-full mt-auto"><div className="h-10 bg-slate-200 dark:bg-slate-800 rounded-xl flex-1"></div></div>
   </motion.div>
 );
 
-// ESTADO INICIAL VACÍO PARA EL FORMULARIO
-const emptyForm = {
-  id: 0, nombre: '', apellido: '', cedula: '', cargo: '', departamento: '', correo: '', telefono: '', nfc_uid: '', ingreso: '', horario: '', status: 'Activo' as 'Activo'|'Inactivo', foto: null as string|null
+const emptyForm: EmpleadoRequest & { id?: number, fotoUrl?: string } = {
+  nombre: '', apellido: '', cedula: '', correo: '', telefono: '', nfcUid: '', cargoId: 0, horarioId: 0, activo: true
 };
 
 export default function Empleados() {
@@ -34,114 +33,149 @@ export default function Empleados() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCargo, setFilterCargo] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [filterHorario, setFilterHorario] = useState('all');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
+  const [cargos, setCargos] = useState<Cargo[]>([]);
+  const [horarios, setHorarios] = useState<Horario[]>([]);
   
-  // NUEVOS ESTADOS PARA EL FORMULARIO Y NFC (Eliminamos el useRef que causaba error)
   const [formData, setFormData] = useState(emptyForm);
   const [isScanning, setIsScanning] = useState(false);
 
+  const fetchDatos = async () => {
+    setIsLoading(true);
+    try {
+      const [empleadosData, cargosData, horariosData] = await Promise.all([
+        api.getEmpleados(),
+        api.getCargos(),
+        api.getHorarios()
+      ]);
+      setEmpleados(empleadosData);
+      setCargos(cargosData.filter((c: Cargo) => c.activo)); // Solo cargos activos
+      setHorarios(horariosData.filter((h: Horario) => h.activo)); // Solo horarios activos
+    } catch {
+      Swal.fire("Error", "No se pudieron cargar los datos de la base de datos.", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchDatos = async () => {
-      setIsLoading(true);
-      try {
-        const data = await api.getEmpleados();
-        setEmpleados(data);
-      } catch (error) {
-        console.error("Error cargando empleados", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchDatos();
   }, []);
 
-  const cargos = ['Administrador', 'Recursos Humanos', 'Desarrollador', 'Operario'];
-  const estados = ['Activo', 'Inactivo'];
-  const horarios = ['Horario Normal', 'Seguridad', 'Flexible', 'Turno Operativo CMBT'];
-  
   const filteredEmpleados = useMemo(() => {
-    return empleados.filter(emp => emp.nombre.toLowerCase().includes(searchTerm.toLowerCase()) && (filterCargo === 'all' || emp.cargo === filterCargo) && (filterStatus === 'all' || emp.status === filterStatus) && (filterHorario === 'all' || emp.horario === filterHorario)).sort((a, b) => sortOrder === 'asc' ? a.nombre.localeCompare(b.nombre) : b.nombre.localeCompare(a.nombre));
-  }, [empleados, searchTerm, filterCargo, filterStatus, filterHorario, sortOrder]);
+    return empleados.filter(emp => {
+      const fullName = `${emp.nombre} ${emp.apellido}`.toLowerCase();
+      const matchSearch = fullName.includes(searchTerm.toLowerCase()) || emp.cedula.includes(searchTerm);
+      const matchCargo = filterCargo === 'all' || emp.cargo?.id?.toString() === filterCargo;
+      const matchStatus = filterStatus === 'all' || (filterStatus === 'Activo' && emp.activo) || (filterStatus === 'Inactivo' && !emp.activo);
+      return matchSearch && matchCargo && matchStatus;
+    }).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [empleados, searchTerm, filterCargo, filterStatus]);
 
-  // --- MANEJO DEL MODAL Y FORMULARIO ---
   const handleOpenModal = (mode: 'add' | 'edit', emp?: Empleado) => {
     setModalMode(mode);
     if (mode === 'edit' && emp) {
-      // Separar nombre y apellido (simplificado)
-      const [nombre, ...apellidos] = emp.nombre.split(' ');
       setFormData({
-        ...emp,
-        nombre: nombre,
-        apellido: apellidos.join(' '),
+        id: emp.id,
+        nombre: emp.nombre,
+        apellido: emp.apellido,
+        cedula: emp.cedula,
+        correo: emp.correo,
+        telefono: emp.telefono,
+        nfcUid: emp.nfcUid,
+        cargoId: emp.cargo?.id || (cargos.length > 0 ? cargos[0].id! : 0),
+        horarioId: emp.horario?.id || (horarios.length > 0 ? horarios[0].id! : 0),
+        activo: emp.activo ?? true,
+        fotoUrl: emp.fotoUrl
       });
     } else {
-      setFormData(emptyForm);
+      setFormData({
+        ...emptyForm,
+        cargoId: cargos.length > 0 ? cargos[0].id! : 0,
+        horarioId: horarios.length > 0 ? horarios[0].id! : 0
+      });
     }
     setIsModalOpen(true);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({ 
+      ...prev, 
+      [name]: name === 'cargoId' || name === 'horarioId' ? Number(value) : value 
+    }));
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) { 
-      setFormData(prev => ({ ...prev, foto: URL.createObjectURL(e.target.files![0]) }));
-    }
-  };
-
-  // Simula la lectura de una tarjeta física
   const simularEscaneoNFC = () => {
     setIsScanning(true);
-    // Simula que el lector tarda 2 segundos en leer la tarjeta
     setTimeout(() => {
       const randomUID = Array.from({length: 4}, () => Math.floor(Math.random()*256).toString(16).padStart(2, '0').toUpperCase()).join(':');
-      setFormData(prev => ({ ...prev, nfc_uid: randomUID }));
+      setFormData(prev => ({ ...prev, nfcUid: randomUID }));
       setIsScanning(false);
     }, 2000);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsModalOpen(false);
-    const isDark = document.documentElement.classList.contains('dark');
-    
-    // Alerta de Éxito
-    Swal.fire({ 
-      title: modalMode === 'add' ? '¡Empleado Registrado!' : '¡Empleado Actualizado!', 
-      text: `Los datos de ${formData.nombre} han sido guardados correctamente.`,
-      icon: 'success', 
-      background: isDark ? '#0f172a' : '#fff', 
-      color: isDark ? '#f8fafc' : '#334155', 
-      customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' } 
-    });
+    if (!formData.cargoId || !formData.horarioId) {
+      Swal.fire("Atención", "Debes crear al menos un Cargo y un Horario antes de registrar empleados.", "warning");
+      return;
+    }
 
-    // En un caso real, aquí harías el POST o PUT a tu API.
-    // Por ahora, solo cerramos el modal.
-  };
-
-  // --- MANEJO DE ELIMINAR / ESTADO ---
-  const handleDelete = (id: number, nombre: string) => {
     const isDark = document.documentElement.classList.contains('dark');
-    Swal.fire({ title: '¿Eliminar definitivamente?', text: `Eliminarás a ${nombre} permanentemente.`, icon: 'error', showCancelButton: true, confirmButtonColor: '#ff7782', cancelButtonColor: '#94a3b8', confirmButtonText: 'Sí, eliminar', background: isDark ? '#0f172a' : '#fff', color: isDark ? '#f8fafc' : '#334155', customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' } }).then((result) => {
-      if (result.isConfirmed) {
-        setEmpleados(empleados.filter(e => e.id !== id));
-        Swal.fire({ title: 'Eliminado', icon: 'success', background: isDark ? '#0f172a' : '#fff', color: isDark ? '#f8fafc' : '#334155', customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' } });
+    try {
+      if (modalMode === 'add') {
+        await api.crearEmpleado(formData);
+      } else {
+        await api.actualizarEmpleado(formData.id!, formData);
       }
-    });
+      setIsModalOpen(false);
+      fetchDatos();
+      Swal.fire({ 
+        title: modalMode === 'add' ? '¡Registrado!' : '¡Actualizado!', 
+        text: `El empleado ha sido guardado correctamente en la base de datos.`,
+        icon: 'success', 
+        background: isDark ? '#0f172a' : '#fff', color: isDark ? '#f8fafc' : '#334155', 
+        customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' } 
+      });
+    } catch {
+      Swal.fire("Error", "Hubo un problema. Verifica que la cédula, correo o UID NFC no estén repetidos.", "error");
+    }
   };
 
-  const handleToggleStatus = (id: number, nombre: string, currentStatus: string) => {
+  const handleToggleStatus = (emp: Empleado) => {
     const isDark = document.documentElement.classList.contains('dark');
-    const isActivating = currentStatus === 'Inactivo';
-    Swal.fire({ title: isActivating ? '¿Activar empleado?' : '¿Desactivar empleado?', text: isActivating ? `${nombre} volverá a tener acceso.` : `${nombre} perderá el acceso al sistema.`, icon: isActivating ? 'info' : 'warning', showCancelButton: true, confirmButtonColor: isActivating ? '#10b981' : '#f59e0b', cancelButtonColor: '#94a3b8', confirmButtonText: isActivating ? 'Sí, activar' : 'Sí, desactivar', background: isDark ? '#0f172a' : '#fff', color: isDark ? '#f8fafc' : '#334155', customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' } }).then((result) => {
+    const isActivating = !emp.activo;
+
+    Swal.fire({ 
+      title: isActivating ? '¿Activar empleado?' : '¿Dar de baja?', 
+      text: isActivating ? `${emp.nombre} volverá a tener acceso.` : `${emp.nombre} perderá el acceso al sistema.`, 
+      icon: isActivating ? 'info' : 'warning', 
+      showCancelButton: true, 
+      confirmButtonColor: isActivating ? '#10b981' : '#f59e0b', 
+      cancelButtonColor: '#94a3b8', 
+      confirmButtonText: isActivating ? 'Sí, activar' : 'Sí, desactivar', 
+      background: isDark ? '#0f172a' : '#fff', color: isDark ? '#f8fafc' : '#334155', 
+      customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' } 
+    }).then(async (result) => {
       if (result.isConfirmed) {
-        setEmpleados(empleados.map(emp => emp.id === id ? { ...emp, status: isActivating ? 'Activo' : 'Inactivo' } : emp));
-        Swal.fire({ title: isActivating ? 'Activado' : 'Desactivado', icon: 'success', background: isDark ? '#0f172a' : '#fff', color: isDark ? '#f8fafc' : '#334155', customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' } });
+        try {
+          if (isActivating) {
+            // Mandamos a actualizar con activo en true
+            await api.actualizarEmpleado(emp.id!, {
+              nombre: emp.nombre, apellido: emp.apellido, cedula: emp.cedula, correo: emp.correo,
+              telefono: emp.telefono, nfcUid: emp.nfcUid, cargoId: emp.cargo!.id!, horarioId: emp.horario!.id!, activo: true
+            });
+          } else {
+            // Mandamos al endpoint de desactivar
+            await api.desactivarEmpleado(emp.id!);
+          }
+          fetchDatos();
+          Swal.fire({ title: isActivating ? 'Activado' : 'Desactivado', icon: 'success', background: isDark ? '#0f172a' : '#fff', color: isDark ? '#f8fafc' : '#334155', customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' } });
+        } catch {
+          Swal.fire("Error", "No se pudo cambiar el estado.", "error");
+        }
       }
     });
   };
@@ -170,32 +204,23 @@ export default function Empleados() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-wrap gap-3 sm:gap-4 bg-white dark:bg-slate-900 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 items-center shadow-sm mb-8">
           <div className="relative flex-[1.5] w-full sm:w-auto min-w-[200px]">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
-            <input type="text" placeholder="Buscar por nombre..." className={`${inputStyle} cursor-text`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            <input type="text" placeholder="Buscar por nombre o cédula..." className={`${inputStyle} cursor-text`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
           <div className="relative flex-1 w-full sm:w-auto min-w-[140px]">
             <Activity size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
             <select className={inputStyle} onChange={(e) => setFilterStatus(e.target.value)} value={filterStatus}>
               <option value="all" className={optionClassName}>Todos los estados</option>
-              {estados.map(s => <option key={s} value={s} className={optionClassName}>{s}</option>)}
+              <option value="Activo" className={optionClassName}>Activos</option>
+              <option value="Inactivo" className={optionClassName}>Inactivos</option>
             </select>
           </div>
           <div className="relative flex-1 w-full sm:w-auto min-w-[140px]">
             <Filter size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
             <select className={inputStyle} onChange={(e) => setFilterCargo(e.target.value)} value={filterCargo}>
               <option value="all" className={optionClassName}>Todos los cargos</option>
-              {cargos.map(c => <option key={c} value={c} className={optionClassName}>{c}</option>)}
+              {cargos.map(c => <option key={c.id} value={c.id} className={optionClassName}>{c.nombre}</option>)}
             </select>
           </div>
-          <div className="relative flex-1 w-full sm:w-auto min-w-[140px]">
-            <Clock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
-            <select className={inputStyle} onChange={(e) => setFilterHorario(e.target.value)} value={filterHorario}>
-              <option value="all" className={optionClassName}>Todos los horarios</option>
-              {horarios.map(h => <option key={h} value={h} className={optionClassName}>{h}</option>)}
-            </select>
-          </div>
-          <button onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')} className="px-6 py-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl font-bold uppercase text-xs text-slate-600 dark:text-slate-300 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 dark:hover:text-primary transition-colors flex items-center justify-center gap-2 whitespace-nowrap w-full sm:w-auto sm:ml-auto border border-transparent">
-            <ArrowUpDown size={16} /> {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
-          </button>
         </motion.div>
 
         {/* TARJETAS */}
@@ -208,25 +233,31 @@ export default function Empleados() {
                  <User size={32} className="text-slate-300 dark:text-slate-600" />
                </div>
                <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 mb-1">No hay empleados</h3>
-               <p className="text-xs font-medium text-slate-500 dark:text-slate-500">Ajusta los filtros de búsqueda</p>
+               <p className="text-xs font-medium text-slate-500 dark:text-slate-500">Ajusta los filtros o registra uno nuevo</p>
              </div>
           ) : (
             <AnimatePresence mode="popLayout">
               {filteredEmpleados.map((emp, index) => (
-                <motion.div key={emp.id} layout {...animProps} transition={{ delay: index * 0.05 }} className={`${cardStyle} flex flex-col group ${actionHoverEffect} ${emp.status === 'Inactivo' ? 'opacity-75 hover:opacity-100 grayscale-[0.3]' : ''}`}>
-                  <div className={`absolute top-5 right-5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase ${emp.status === 'Activo' ? 'bg-emerald-50 text-emerald-600 dark:bg-success/10 dark:text-success' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
-                    ● {emp.status}
+                <motion.div key={emp.id} layout {...animProps} transition={{ delay: index * 0.05 }} className={`${cardStyle} flex flex-col group ${actionHoverEffect} ${!emp.activo ? 'opacity-75 hover:opacity-100 grayscale-[0.3]' : ''}`}>
+                  <div className={`absolute top-5 right-5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase ${emp.activo ? 'bg-emerald-50 text-emerald-600 dark:bg-success/10 dark:text-success' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+                    ● {emp.activo ? 'Activo' : 'Inactivo'}
                   </div>
+                  
                   <div className="flex items-center gap-4 mb-4">
-                    <div className="w-16 h-16 rounded-[1rem] bg-primary/5 dark:bg-primary/10 flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm group-hover:scale-105 transition-transform duration-300 shrink-0">
-                      <img src={emp.foto || `https://ui-avatars.com/api/?name=${emp.nombre}&background=7380ec&color=fff`} alt={emp.nombre} className="w-full h-full object-cover" />
+                    <div className="w-16 h-16 rounded-[1rem] bg-primary/10 flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm group-hover:scale-105 transition-transform duration-300 shrink-0 text-xl font-black text-primary">
+                      {emp.fotoUrl ? (
+                        <img src={emp.fotoUrl} alt={emp.nombre} className="w-full h-full object-cover" />
+                      ) : (
+                        `${emp.nombre.charAt(0)}${emp.apellido.charAt(0)}`
+                      )}
                     </div>
                     <div className="min-w-0 pr-10">
-                      <h3 className="text-base font-bold text-slate-800 dark:text-white leading-tight truncate">{emp.nombre}</h3>
-                      <p className="text-xs font-semibold text-primary uppercase tracking-widest mt-1 mb-1 truncate">{emp.cargo}</p>
-                      <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase truncate">{emp.departamento}</p>
+                      <h3 className="text-base font-bold text-slate-800 dark:text-white leading-tight truncate">{emp.nombre} {emp.apellido}</h3>
+                      <p className="text-xs font-semibold text-primary uppercase tracking-widest mt-1 mb-1 truncate">{emp.cargo?.nombre || 'Sin Cargo'}</p>
+                      <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase truncate font-mono">UID: {emp.nfcUid || 'No asignado'}</p>
                     </div>
                   </div>
+
                   <div className="space-y-2 mb-6 flex-1">
                     <div className="flex items-center gap-3 text-xs font-semibold text-slate-600 dark:text-slate-300">
                       <div className="w-6 h-6 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-primary shrink-0"><Mail size={12}/></div>
@@ -241,26 +272,31 @@ export default function Empleados() {
                       <span className="truncate">{emp.cedula}</span>
                     </div>
                   </div>
+
                   <div className="grid grid-cols-2 gap-4 py-3 border-t border-slate-50 dark:border-slate-800/50 mb-3">
                     <div>
                       <p className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 mb-1">Horario Asignado</p>
-                      <p className="text-xs font-bold text-slate-700 dark:text-slate-300">{emp.horario}</p>
+                      <p className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{emp.horario?.nombre || 'Ninguno'}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 mb-1">Fecha de Ingreso</p>
-                      <p className="text-xs font-bold text-slate-700 dark:text-slate-300">{emp.ingreso}</p>
+                      <p className="text-xs font-bold text-slate-700 dark:text-slate-300">{emp.fechaIngreso || 'N/A'}</p>
                     </div>
                   </div>
+
                   <div className="flex gap-2 w-full pt-4 border-t border-slate-50 dark:border-slate-800/50 mt-1.5">
                     <button onClick={() => handleOpenModal('edit', emp)} className="flex-1 flex justify-center items-center gap-1.5 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 py-3 rounded-xl text-[11px] font-bold uppercase hover:bg-primary hover:text-white dark:hover:bg-primary transition-all duration-150 border border-transparent hover:border-primary/20">
                       <Edit size={14} /> <span className="italic truncate">Editar</span>
                     </button>
-                    <button onClick={() => handleToggleStatus(emp.id, emp.nombre, emp.status)} className={`flex-1 flex justify-center items-center gap-1.5 py-3 rounded-xl text-[11px] font-bold uppercase transition-all border border-transparent ${emp.status === 'Activo' ? 'bg-amber-50 dark:bg-warning/10 text-amber-600 dark:text-warning hover:bg-amber-500 hover:text-white dark:hover:bg-warning' : 'bg-emerald-50 dark:bg-success/10 text-emerald-600 dark:text-success hover:bg-emerald-500 hover:text-white dark:hover:bg-success'}`}>
-                      {emp.status === 'Activo' ? <><PowerOff size={14} /> <span className="italic truncate">Desactivar</span></> : <><CheckCircle2 size={14} /> <span className="italic truncate">Activar</span></>}
-                    </button>
-                    <button onClick={() => handleDelete(emp.id, emp.nombre)} className="w-12 flex justify-center items-center shrink-0 bg-red-50 dark:bg-danger/10 text-red-500 dark:text-danger rounded-xl hover:bg-red-500 hover:text-white dark:hover:bg-danger transition-all border border-transparent hover:border-red-200">
-                      <Trash2 size={16} />
-                    </button>
+                    {emp.activo ? (
+                      <button onClick={() => handleToggleStatus(emp)} className="flex-1 flex justify-center items-center gap-1.5 py-3 rounded-xl text-[11px] font-bold uppercase transition-all border border-transparent bg-amber-50 dark:bg-warning/10 text-amber-600 dark:text-warning hover:bg-amber-500 hover:text-white dark:hover:bg-warning">
+                        <PowerOff size={14} /> <span className="italic truncate">Desactivar</span>
+                      </button>
+                    ) : (
+                      <button onClick={() => handleToggleStatus(emp)} className="flex-1 flex justify-center items-center gap-1.5 py-3 rounded-xl text-[11px] font-bold uppercase transition-all border border-transparent bg-emerald-50 dark:bg-success/10 text-emerald-600 dark:text-success hover:bg-emerald-500 hover:text-white dark:hover:bg-success">
+                        <CheckCircle2 size={14} /> <span className="italic truncate">Activar</span>
+                      </button>
+                    )}
                   </div>
                 </motion.div>
               ))}
@@ -283,43 +319,33 @@ export default function Empleados() {
               <form className="grid grid-cols-1 md:grid-cols-2 gap-6" onSubmit={handleSubmit}>
                 <div className="flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800 pb-6 md:pb-0 md:pr-6 space-y-6">
                   
-                  {/* FOTO */}
+                  {/* FOTO (Preview) */}
                   <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-[2.5rem] bg-slate-50 dark:bg-slate-800/50 border-2 border-dashed border-primary/30 flex items-center justify-center overflow-hidden relative group">
-                    {formData.foto ? <img src={formData.foto} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="Preview" /> : <ImagePlus size={36} className="text-primary/40 group-hover:scale-110 transition-transform" />}
+                    {formData.fotoUrl ? <img src={formData.fotoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="Preview" /> : <ImagePlus size={36} className="text-primary/40 group-hover:scale-110 transition-transform" />}
                     <label className="absolute inset-0 bg-primary/90 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-all duration-300">
                       <ImagePlus size={24} className="text-white mb-2" />
-                      <span className="text-[9px] font-bold text-white uppercase tracking-widest">Subir Foto</span>
-                      <input type="file" className="hidden" onChange={handleImageChange} accept="image/*" />
+                      <span className="text-[9px] font-bold text-white uppercase tracking-widest">En desarrollo</span>
                     </label>
                   </div>
 
                   {/* LECTOR NFC */}
-                  <div className={`w-full p-4 sm:p-5 rounded-2xl sm:rounded-3xl border text-center transition-all ${formData.nfc_uid ? 'bg-emerald-50 dark:bg-success/10 border-emerald-100 dark:border-success/20 text-emerald-600 dark:text-success' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'}`}>
-                    <label className={`text-[9px] font-bold uppercase block mb-3 tracking-widest ${formData.nfc_uid ? 'text-emerald-600 dark:text-success' : 'text-slate-500'}`}>Vínculo Tarjeta NFC</label>
+                  <div className={`w-full p-4 sm:p-5 rounded-2xl sm:rounded-3xl border text-center transition-all ${formData.nfcUid ? 'bg-emerald-50 dark:bg-success/10 border-emerald-100 dark:border-success/20 text-emerald-600 dark:text-success' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'}`}>
+                    <label className={`text-[9px] font-bold uppercase block mb-3 tracking-widest ${formData.nfcUid ? 'text-emerald-600 dark:text-success' : 'text-slate-500'}`}>Vínculo Tarjeta NFC</label>
                     
-                    {formData.nfc_uid ? (
+                    {formData.nfcUid ? (
                       <div className="flex items-center justify-center gap-2">
                         <CreditCard size={18} />
-                        <span className="font-mono text-[11px] sm:text-[13px] font-bold tracking-widest">{formData.nfc_uid}</span>
+                        <span className="font-mono text-[11px] sm:text-[13px] font-bold tracking-widest">{formData.nfcUid}</span>
                       </div>
                     ) : (
-                      <button 
-                        type="button" 
-                        onClick={simularEscaneoNFC}
-                        disabled={isScanning}
-                        className={`w-full py-2.5 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all ${isScanning ? 'bg-primary/20 text-primary cursor-wait' : 'bg-primary text-white hover:bg-indigo-600'}`}
-                      >
-                        {isScanning ? (
-                           <><Wifi size={16} className="animate-pulse" /> Esperando Tarjeta...</>
-                        ) : (
-                           <><CreditCard size={16} /> Escanear Tarjeta</>
-                        )}
+                      <button type="button" onClick={simularEscaneoNFC} disabled={isScanning} className={`w-full py-2.5 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all ${isScanning ? 'bg-primary/20 text-primary cursor-wait' : 'bg-primary text-white hover:bg-indigo-600'}`}>
+                        {isScanning ? <><Wifi size={16} className="animate-pulse" /> Esperando Tarjeta...</> : <><CreditCard size={16} /> Escanear Tarjeta</>}
                       </button>
                     )}
                   </div>
                 </div>
 
-                {/* CAMPOS DE TEXTO (Vinculados al estado formData) */}
+                {/* CAMPOS DE TEXTO */}
                 <div className="space-y-4">
                   <div className="relative">
                     <IdCard size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
@@ -345,15 +371,15 @@ export default function Empleados() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="relative">
-                      <select name="cargo" value={formData.cargo} onChange={handleInputChange} required className={inputStyle}>
-                        <option value="" className={optionClassName}>Cargo...</option>
-                        {cargos.map(c => <option key={c} value={c} className={optionClassName}>{c}</option>)}
+                      <select name="cargoId" value={formData.cargoId} onChange={handleInputChange} required className={inputStyle}>
+                        <option value="0" disabled className={optionClassName}>Selecciona Cargo...</option>
+                        {cargos.map(c => <option key={c.id} value={c.id} className={optionClassName}>{c.nombre}</option>)}
                       </select>
                     </div>
                     <div className="relative">
-                      <select name="horario" value={formData.horario} onChange={handleInputChange} required className={inputStyle}>
-                        <option value="" className={optionClassName}>Horario...</option>
-                        {horarios.map(h => <option key={h} value={h} className={optionClassName}>{h}</option>)}
+                      <select name="horarioId" value={formData.horarioId} onChange={handleInputChange} required className={inputStyle}>
+                        <option value="0" disabled className={optionClassName}>Selecciona Horario...</option>
+                        {horarios.map(h => <option key={h.id} value={h.id} className={optionClassName}>{h.nombre}</option>)}
                       </select>
                     </div>
                   </div>

@@ -30,7 +30,7 @@ public class EmpleadoServiceImpl implements EmpleadoService {
 
     @Override
     public List<Empleado> obtenerEmpleadosActivos() {
-        return empleadoRepository.findAllByActivoTrue();
+        return empleadoRepository.findAll();
     }
 
     @Override
@@ -61,6 +61,34 @@ public class EmpleadoServiceImpl implements EmpleadoService {
 
         // 3. Lo guardamos
         return empleadoRepository.save(nuevoEmpleado);
+    }
+
+    @Override
+    public Empleado actualizarEmpleado(Long id, EmpleadoRequestDTO dto) {
+        // 1. Buscamos el empleado existente
+        Empleado empleadoExistente = obtenerPorId(id);
+
+        // 2. Buscamos el nuevo Cargo y Horario (por si se los cambiaron en React)
+        Cargo cargo = cargoService.obtenerPorId(dto.cargoId());
+        Horario horario = horarioService.obtenerPorId(dto.horarioId());
+
+        // 3. Actualizamos todos los datos
+        empleadoExistente.setNombre(dto.nombre());
+        empleadoExistente.setApellido(dto.apellido());
+        empleadoExistente.setCedula(dto.cedula());
+        empleadoExistente.setCorreo(dto.correo());
+        empleadoExistente.setTelefono(dto.telefono());
+        empleadoExistente.setNfcUid(dto.nfcUid());
+        empleadoExistente.setCargo(cargo);
+        empleadoExistente.setHorario(horario);
+
+        // 4. Si desde React nos mandan la orden de cambiar el estado (Activar/Desactivar)
+        if (dto.activo() != null) {
+            empleadoExistente.setActivo(dto.activo());
+        }
+
+        // 5. Guardamos los cambios
+        return empleadoRepository.save(empleadoExistente);
     }
 
     @Override

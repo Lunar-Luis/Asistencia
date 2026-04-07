@@ -18,7 +18,7 @@ public class HorarioServiceImpl implements HorarioService {
 
     @Override
     public List<Horario> obtenerHorariosActivos() {
-        return horarioRepository.findAllByActivoTrue();
+        return horarioRepository.findAll();
     }
 
     @Override
@@ -41,6 +41,11 @@ public class HorarioServiceImpl implements HorarioService {
         horario.setHoraSalida(detalles.getHoraSalida());
         horario.setToleranciaMinutos(detalles.getToleranciaMinutos());
         horario.setDiasLaborables(detalles.getDiasLaborables());
+
+        if (detalles.getActivo() != null) {
+            horario.setActivo(detalles.getActivo());
+        }
+
         return horarioRepository.save(horario);
     }
 
