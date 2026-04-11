@@ -1,14 +1,30 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useMemo } from 'react';
 import { CalendarDays, Search, User, CheckCircle2, AlertCircle, XCircle, Cpu, Activity, CreditCard } from 'lucide-react';
+import Swal from 'sweetalert2';
 
-// IMPORTAMOS LA API Y LOS TIPOS
-import { api, type RegistroAsistencia } from '../services/mockData';
+// IMPORTAMOS LA API REAL
+import * as api from '../services/api';
+import type { Asistencia } from '../services/api';
 
 const animProps = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.4 } };
 const cardStyle = "bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm p-6 md:p-8 transition-colors";
 const inputStyle = "w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl outline-none text-[13px] font-bold text-slate-700 dark:text-white border border-transparent focus:border-primary/40 focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer";
 const optionClassName = "bg-white dark:bg-slate-800 text-slate-700 dark:text-white font-bold py-2";
+
+// Funciones Helper
+const formatearHora = (fechaString: string | null) => {
+  if (!fechaString) return '---';
+  const fecha = new Date(fechaString);
+  return fecha.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit', hour12: true });
+};
+
+const formatearEstado = (estado: string) => {
+  if (estado === 'A_TIEMPO') return 'A tiempo';
+  if (estado === 'TARDE') return 'Tarde';
+  if (estado === 'AUSENTE') return 'Ausente';
+  return estado;
+};
 
 const SkeletonLayout = () => (
   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -63,67 +79,77 @@ const SkeletonLayout = () => (
 export default function Asistencias() {
   const [isLoading, setIsLoading] = useState(true);
   
-  // Base de datos local (Mock)
-  const [historialCompleto, setHistorialCompleto] = useState<RegistroAsistencia[]>([]);
-  const [enVivo, setEnVivo] = useState<RegistroAsistencia[]>([]);
+  // Datos reales desde la BD
+  const [historialCompleto, setHistorialCompleto] = useState<Asistencia[]>([]);
 
   // 1. ESTADOS PARA LOS FILTROS
-  const [fechaFiltro, setFechaFiltro] = useState("2024-11-12"); // Simulamos que "hoy" es el 12 Nov 2024
+  const hoyStr = new Date().toISOString().split('T')[0];
+  const [fechaFiltro, setFechaFiltro] = useState(hoyStr);
   const [empleadoFiltro, setEmpleadoFiltro] = useState("all");
   const [estadoFiltro, setEstadoFiltro] = useState("all");
   const [busquedaGlobal, setBusquedaGlobal] = useState("");
 
-  // 2. CARGA INICIAL DE DATOS
+  // 2. CARGA DE DATOS (CON POLLING PARA EL EN VIVO)
+  const fetchDatos = async () => {
+    try {
+      const data = await api.getAsistencias();
+      // Ordenar: Los más recientes arriba
+      const dataOrdenada = data.sort((a: Asistencia, b: Asistencia) => {
+         return new Date(b.marcaEntrada).getTime() - new Date(a.marcaEntrada).getTime();
+      });
+      setHistorialCompleto(dataOrdenada);
+    } catch (error) {
+      console.error("Error cargando asistencias", error);
+      Swal.fire("Error", "No se pudo cargar el historial de asistencias.", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchDatos = async () => {
-      setIsLoading(true);
-      try {
-        const [dataHistorial, dataEnVivo] = await Promise.all([
-          api.getReportes(), // Usamos getReportes() porque devuelve TODO el historial, no solo el de hoy
-          api.getActividadEnVivo()
-        ]);
-        setHistorialCompleto(dataHistorial);
-        setEnVivo(dataEnVivo);
-      } catch (error) {
-        console.error("Error cargando asistencias", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchDatos();
+    // Actualizar cada 5 segundos para el Monitor en Vivo
+    const intervalo = setInterval(fetchDatos, 5000); 
+    return () => clearInterval(intervalo);
   }, []);
 
   // 3. OBTENER LISTA ÚNICA DE EMPLEADOS PARA EL SELECT
   const empleadosUnicos = useMemo(() => {
-    const nombres = historialCompleto.map(item => item.empleado);
-    return [...new Set(nombres)]; // Array con nombres sin repetir
+    const nombres = historialCompleto.map(item => `${item.empleado.nombre} ${item.empleado.apellido}`);
+    return [...new Set(nombres)].sort();
   }, [historialCompleto]);
 
-  // 4. FILTRADO DINÁMICO (useMemo para no recalcular si los datos no cambian)
+  // 4. FILTRADO DINÁMICO
   const historialFiltrado = useMemo(() => {
     return historialCompleto.filter(item => {
-      // Filtro 1: Fecha (Si está vacía, no filtra. Si tiene algo, compara)
-      const matchFecha = fechaFiltro ? item.fecha === fechaFiltro : true;
+      const nombreCompleto = `${item.empleado.nombre} ${item.empleado.apellido}`;
+
+      // Filtro 1: Fecha
+      const matchFecha = fechaFiltro ? item.fechaRegistro === fechaFiltro : true;
       
       // Filtro 2: Empleado
-      const matchEmpleado = empleadoFiltro === "all" ? true : item.empleado === empleadoFiltro;
+      const matchEmpleado = empleadoFiltro === "all" ? true : nombreCompleto === empleadoFiltro;
       
-      // Filtro 3: Estado (A tiempo, Tarde, Ausente)
+      // Filtro 3: Estado 
       let matchEstado = true;
-      if (estadoFiltro === "ontime") matchEstado = item.estado === "A tiempo";
-      else if (estadoFiltro === "late") matchEstado = item.estado === "Tarde";
-      else if (estadoFiltro === "absent") matchEstado = item.estado === "Ausente";
+      if (estadoFiltro === "ontime") matchEstado = item.estadoEntrada === "A_TIEMPO";
+      else if (estadoFiltro === "late") matchEstado = item.estadoEntrada === "TARDE";
+      else if (estadoFiltro === "absent") matchEstado = item.estadoEntrada === "AUSENTE";
 
-      // Filtro 4: Búsqueda Global (Input de texto libre)
-      const matchBusqueda = busquedaGlobal 
-        ? item.empleado.toLowerCase().includes(busquedaGlobal.toLowerCase()) || 
-          item.cargo.toLowerCase().includes(busquedaGlobal.toLowerCase()) ||
-          item.nfc.toLowerCase().includes(busquedaGlobal.toLowerCase())
-        : true;
+      // Filtro 4: Búsqueda Global 
+      const textoBusqueda = `${nombreCompleto} ${item.empleado.nfcUid} ${item.empleado.cargo?.nombre || ''}`.toLowerCase();
+      const matchBusqueda = busquedaGlobal ? textoBusqueda.includes(busquedaGlobal.toLowerCase()) : true;
 
       return matchFecha && matchEmpleado && matchEstado && matchBusqueda;
     });
   }, [historialCompleto, fechaFiltro, empleadoFiltro, estadoFiltro, busquedaGlobal]);
+
+  // 5. DATOS PARA EL MONITOR EN VIVO (Hoy, Max 5)
+  const enVivo = useMemo(() => {
+      return historialCompleto
+        .filter(item => item.fechaRegistro === hoyStr)
+        .slice(0, 5);
+  }, [historialCompleto, hoyStr]);
 
   return (
     <main className="pb-8 max-w-[1600px] mx-auto">
@@ -139,7 +165,7 @@ export default function Asistencias() {
         </p>
       </motion.div>
 
-      {isLoading ? (
+      {isLoading && historialCompleto.length === 0 ? (
         <SkeletonLayout />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -247,31 +273,35 @@ export default function Asistencias() {
                         historialFiltrado.map((item) => (
                           <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors group">
                             <td className="p-4">
-                              <p className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">{item.empleado}</p>
-                              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mt-1">{item.cargo}</p>
+                              <p className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                                {item.empleado.nombre} {item.empleado.apellido}
+                              </p>
+                              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mt-1">
+                                {item.empleado.cargo?.nombre || 'Sin Cargo'}
+                              </p>
                             </td>
                             <td className="p-4">
-                              <p className="text-xs font-bold text-slate-700 dark:text-white">{item.fecha}</p>
+                              <p className="text-xs font-bold text-slate-700 dark:text-white">{item.fechaRegistro}</p>
                             </td>
                             <td className="p-4">
                               <span className="text-xs font-bold text-slate-600 dark:text-white/60 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-md">
-                                {item.hora || '---'}
+                                {formatearHora(item.marcaEntrada)}
                               </span>
                             </td>
                             <td className="p-4">
                               <span className="text-xs font-bold text-slate-600 dark:text-white/60 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-md">
-                                ---
+                                {item.marcaSalida ? formatearHora(item.marcaSalida) : '---'}
                               </span>
                             </td>
                             <td className="p-4 text-center">
                               <span className="inline-flex items-center gap-1.5 text-[11px] font-mono font-bold text-slate-600 dark:text-slate-400 uppercase">
-                                <CreditCard size={14} className="text-primary/70" /> {item.nfc}
+                                <CreditCard size={14} className="text-primary/70" /> {item.empleado.nfcUid}
                               </span>
                             </td>
                             <td className="p-4 text-right">
-                              <span className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-wider ${item.estado === 'A tiempo' ? 'text-emerald-600 bg-emerald-50 dark:text-success dark:bg-success/10' : item.estado === 'Tarde' ? 'text-amber-600 bg-amber-50 dark:text-warning dark:bg-warning/10' : 'text-red-500 bg-red-50 dark:text-danger dark:bg-danger/10'}`}>
-                                {item.estado === 'A tiempo' ? <CheckCircle2 size={14}/> : item.estado === 'Tarde' ? <AlertCircle size={14}/> : <XCircle size={14}/>}
-                                {item.estado}
+                              <span className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-wider ${item.estadoEntrada === 'A_TIEMPO' ? 'text-emerald-600 bg-emerald-50 dark:text-success dark:bg-success/10' : item.estadoEntrada === 'TARDE' ? 'text-amber-600 bg-amber-50 dark:text-warning dark:bg-warning/10' : 'text-red-500 bg-red-50 dark:text-danger dark:bg-danger/10'}`}>
+                                {item.estadoEntrada === 'A_TIEMPO' ? <CheckCircle2 size={14}/> : item.estadoEntrada === 'TARDE' ? <AlertCircle size={14}/> : <XCircle size={14}/>}
+                                {formatearEstado(item.estadoEntrada)}
                               </span>
                             </td>
                           </tr>
@@ -314,16 +344,23 @@ export default function Asistencias() {
                   {enVivo.length > 0 ? (
                     enVivo.map((lectura) => (
                       <motion.div key={lectura.id} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="relative pl-7 border-l-2 border-slate-100 dark:border-slate-800">
-                        <span className={`absolute -left-[11px] top-1 w-5 h-5 rounded-full border-[5px] border-white dark:border-slate-900 ${lectura.estado === 'A tiempo' ? 'bg-emerald-500 dark:bg-success' : lectura.estado === 'Tarde' ? 'bg-amber-500 dark:bg-warning' : 'bg-red-500 dark:bg-danger'}`}></span>
+                        {/* Lógica de color original mantenida */}
+                        <span className={`absolute -left-[11px] top-1 w-5 h-5 rounded-full border-[5px] border-white dark:border-slate-900 ${lectura.estadoEntrada === 'A_TIEMPO' ? 'bg-emerald-500 dark:bg-success' : lectura.estadoEntrada === 'TARDE' ? 'bg-amber-500 dark:bg-warning' : 'bg-red-500 dark:bg-danger'}`}></span>
                         <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-transparent dark:border-slate-800/50 hover:border-slate-200 dark:hover:border-slate-700 cursor-default">
                           <div className="flex justify-between items-start mb-3">
-                            <p className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">{lectura.empleado}</p>
-                            <span className="text-[10px] font-black italic text-primary">{lectura.hora}</span>
+                            <p className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                              {lectura.empleado.nombre} {lectura.empleado.apellido}
+                            </p>
+                            <span className="text-[10px] font-black italic text-primary">
+                              {lectura.marcaSalida ? formatearHora(lectura.marcaSalida) : formatearHora(lectura.marcaEntrada)}
+                            </span>
                           </div>
                           <div className="flex justify-between items-end mt-1">
-                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">{lectura.cargo}</p>
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${lectura.estado === 'A tiempo' ? 'bg-emerald-50 dark:bg-success/10 text-emerald-600 dark:text-success' : 'bg-amber-50 dark:bg-warning/10 text-amber-600 dark:text-warning'}`}>
-                              {lectura.tipo} - {lectura.estado}
+                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">
+                              {lectura.empleado.cargo?.nombre || 'Sin Cargo'}
+                            </p>
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${lectura.estadoEntrada === 'A_TIEMPO' ? 'bg-emerald-50 dark:bg-success/10 text-emerald-600 dark:text-success' : 'bg-amber-50 dark:bg-warning/10 text-amber-600 dark:text-warning'}`}>
+                              {lectura.marcaSalida ? 'Salida' : 'Entrada'} - {formatearEstado(lectura.estadoEntrada)}
                             </span>
                           </div>
                         </div>

@@ -20,17 +20,31 @@ public class AdminSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        // Solo ejecuta si la tabla está vacía
         if (repository.count() == 0) {
+
+            // 1. USUARIO SUPERADMIN (Tú / Soporte)
             UsuarioAdmin admin = UsuarioAdmin.builder()
                     .username("admin")
                     .email("admin@hospital.com")
-                    // Contraseña real: "123456" (encriptada con BCrypt)
                     .passwordHash(passwordEncoder.encode("123456"))
                     .rol(RolUsuario.SUPERADMIN)
                     .activo(true)
                     .build();
             repository.save(admin);
             System.out.println("✅ Administrador por defecto creado: admin / 123456");
+
+            // 2. USUARIO RRHH (La Jefa)
+            UsuarioAdmin jefa = UsuarioAdmin.builder()
+                    .username("jefa")
+                    .email("rrhh@hospital.com")
+                    .passwordHash(passwordEncoder.encode("123456")) // Misma clave para probar rápido
+                    // OJO: Asegúrate de que 'RRHH' o 'USER' exista en tu enum RolUsuario
+                    .rol(RolUsuario.RRHH)
+                    .activo(true)
+                    .build();
+            repository.save(jefa);
+            System.out.println("✅ Usuario de RRHH creado: jefa / 123456");
         }
     }
 }

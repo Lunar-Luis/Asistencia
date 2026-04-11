@@ -36,11 +36,16 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .cors(Customizer.withDefaults()) // <--- ESTA ES LA LÍNEA MÁGICA QUE ARREGLA EL ERROR
+                .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/asistencias/hardware/marcar").permitAll()
+                        .requestMatchers("/api/empleados/hardware/escanear-registro").permitAll()
+                        .requestMatchers("/api/empleados/hardware/activar-modo-registro").permitAll()
+                        .requestMatchers("/api/empleados/hardware/leer-registro").permitAll()
+                        .requestMatchers("/api/terminales/hardware/ping").permitAll()
+                        .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

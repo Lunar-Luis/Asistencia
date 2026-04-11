@@ -44,13 +44,32 @@ const fetchAuth = async (endpoint: string, options: RequestInit = {}) => {
     headers,
   });
 
-  if (response.status === 401 || response.status === 403) {
-    localStorage.removeItem('token');
-    window.location.href = '/login'; 
-    throw new Error('Sesión expirada o acceso denegado');
+  // Si la respuesta no es OK
+  if (!response.ok) {
+    // Solo expulsamos si es 401 (No Autorizado) o si es 403 Y el endpoint NO es de creación/edición de datos
+    // Esto previene que un error de validación en /empleados te saque del sistema.
+    if (response.status === 401 || (response.status === 403 && !endpoint.includes('/empleados'))) {
+      localStorage.removeItem('token');
+      window.location.href = '/login'; 
+      throw new Error('Sesión expirada o acceso denegado');
+    }
+    
+    // Intentamos extraer el mensaje de error real del backend
+   let errorMessage = 'Error en la petición al servidor';
+    try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+    } catch {
+        // Si no es JSON, intentamos texto
+        try {
+           errorMessage = await response.text() || errorMessage;
+        } catch {
+           // Ignoramos el error de parseo para conservar el mensaje por defecto
+        }
+    }
+    throw new Error(errorMessage);
   }
-
-  if (!response.ok) throw new Error('Error en la petición al servidor');
+  
   if (response.status === 204) return null;
   
   return response.json();
@@ -112,6 +131,42 @@ export interface EmpleadoRequest {
 
 /**
  * ==========================================
+ * INTERFACES: TERMINALES
+ * ==========================================
+ */
+export interface Terminal {
+  id?: number;
+  nombre: string;
+  macAddress: string;
+  ubicacion: string;
+  ultimoPing?: string;
+  activo?: boolean;
+}
+
+/**
+ * ==========================================
+ * INTERFACES: ASISTENCIAS
+ * ==========================================
+ */
+export interface Asistencia {
+  id: number;
+  empleado: {
+    id: number;
+    nombre: string;
+    apellido: string;
+    nfcUid: string;
+    cargo: { nombre: string };
+  };
+  terminal: { nombre: string };
+  fechaRegistro: string;
+  marcaEntrada: string;
+  marcaSalida: string | null;
+  estadoEntrada: string; // 'A_TIEMPO', 'TARDE', 'AUSENTE'
+  horasTrabajadas: number | null;
+}
+
+/**
+ * ==========================================
  * ENDPOINTS: CARGOS
  * ==========================================
  */
@@ -132,10 +187,33 @@ export const desactivarHorario = (id: number) => fetchAuth(`/horarios/${id}`, { 
 
 /**
  * ==========================================
- * ENDPOINTS: EMPLEADOS
+ * ENDPOINTS: EMPLEADOS Y HARDWARE
  * ==========================================
  */
 export const getEmpleados = () => fetchAuth('/empleados');
 export const crearEmpleado = (empleado: EmpleadoRequest) => fetchAuth('/empleados', { method: 'POST', body: JSON.stringify(empleado) });
 export const actualizarEmpleado = (id: number, empleado: EmpleadoRequest) => fetchAuth(`/empleados/${id}`, { method: 'PUT', body: JSON.stringify(empleado) });
 export const desactivarEmpleado = (id: number) => fetchAuth(`/empleados/${id}`, { method: 'DELETE' });
+
+// ---> NUEVOS ENDPOINTS PARA LEER LA TARJETA DESDE REACT <---
+export const activarModoRegistro = () => fetchAuth('/empleados/hardware/activar-modo-registro', { method: 'POST' });
+export const leerTarjetaHardware = () => fetchAuth('/empleados/hardware/leer-registro');
+
+
+/**
+ * ==========================================
+ * ENDPOINTS: TERMINALES
+ * ==========================================
+ */
+export const getTerminales = () => fetchAuth('/terminales');
+export const crearTerminal = (terminal: Terminal) => fetchAuth('/terminales', { method: 'POST', body: JSON.stringify(terminal) });
+export const actualizarTerminal = (id: number, terminal: Terminal) => fetchAuth(`/terminales/${id}`, { method: 'PUT', body: JSON.stringify(terminal) });
+export const desactivarTerminal = (id: number) => fetchAuth(`/terminales/${id}`, { method: 'DELETE' });
+
+/**
+ * ==========================================
+ * ENDPOINTS: ASISTENCIAS
+ * ==========================================
+ */
+// Obtiene el historial completo de asistencias desde la base de datos
+export const getAsistencias = () => fetchAuth('/asistencias');

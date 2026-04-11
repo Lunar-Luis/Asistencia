@@ -7,8 +7,9 @@ public interface TerminalService {
     List<Terminal> obtenerTerminalesActivas();
     Terminal obtenerPorId(Long id);
     Terminal crearTerminal(Terminal terminal);
+    Terminal actualizarTerminal(Long id, Terminal terminal);
+    void desactivarTerminal(Long id);
 
-    // Métodos especiales para controlar el hardware desde React
-    Terminal cambiarModoEnrolamiento(Long id, boolean estado);
-    void reportarPing(String macAddress, String ipLocal); // Para que el ESP32 avise que está vivo
+    // Método para que el ESP32 avise que está vivo
+    void reportarPing(String macAddress);
 }

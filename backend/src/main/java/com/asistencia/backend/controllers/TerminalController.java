@@ -29,9 +29,25 @@ public class TerminalController {
         return new ResponseEntity<>(terminalService.crearTerminal(terminal), HttpStatus.CREATED);
     }
 
-    // Endpoint para que React active o desactive el enrolamiento
-    @PatchMapping("/{id}/enrolamiento")
-    public ResponseEntity<Terminal> toggleEnrolamiento(@PathVariable Long id, @RequestParam boolean estado) {
-        return ResponseEntity.ok(terminalService.cambiarModoEnrolamiento(id, estado));
+    @PutMapping("/{id}")
+    public ResponseEntity<Terminal> actualizarTerminal(@PathVariable Long id, @RequestBody Terminal terminal) {
+        return ResponseEntity.ok(terminalService.actualizarTerminal(id, terminal));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> desactivarTerminal(@PathVariable Long id) {
+        terminalService.desactivarTerminal(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // Endpoint público para que el ESP32 mande el ping sin necesidad de token JWT
+    @PostMapping("/hardware/ping")
+    public ResponseEntity<String> recibirPing(@RequestBody java.util.Map<String, String> payload) {
+        String mac = payload.get("macAddress");
+        if (mac != null && !mac.isEmpty()) {
+            terminalService.reportarPing(mac);
+            return ResponseEntity.ok("Ping recibido");
+        }
+        return ResponseEntity.badRequest().body("Falta macAddress");
     }
 }

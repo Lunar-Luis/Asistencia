@@ -4,28 +4,27 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LayoutDashboard, Users, Briefcase, Clock,
   Calendar, FileBarChart, LogOut, Sun, Moon, Settings, UserCircle,
-  Menu, Camera
-} from 'lucide-react';
+  Menu, Camera, Cpu
+} from 'lucide-react'; // ---> Añadí el icono 'Cpu' para Terminales
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
-  
-  // Función para determinar si una ruta está activa
   const isActive = (path: string) => location.pathname === path;
   
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileMenuOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
-  
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // ---> NUEVO: Leer datos del usuario logueado
+  const rolUsuario = localStorage.getItem('rol') || '';
+  const username = localStorage.getItem('username') || 'Usuario';
+  const esSuperAdmin = rolUsuario === 'SUPERADMIN';
+
   useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    if (isDark) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
   }, [isDark]);
 
   useEffect(() => {
@@ -46,13 +45,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   };
 
   const handleLogoClick = () => {
-    if (window.innerWidth >= 768) {
-      setIsDesktopCollapsed(!isDesktopCollapsed);
-    } else {
-      setIsMobileMenuOpen(!isMobileOpen); 
-    }
+    if (window.innerWidth >= 768) setIsDesktopCollapsed(!isDesktopCollapsed);
+    else setIsMobileMenuOpen(!isMobileOpen); 
   };
 
+  // ---> NUEVO: Menú dinámico. Terminales solo existe si esSuperAdmin es true.
   const menu = [
     { path: '/', icon: <LayoutDashboard size={24} />, text: 'Inicio' },
     { path: '/asistencias', icon: <Clock size={24} />, text: 'Asistencias' },
@@ -60,7 +57,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { path: '/cargos', icon: <Briefcase size={24} />, text: 'Cargos' },
     { path: '/horarios', icon: <Calendar size={24} />, text: 'Horarios' },
     { path: '/reportes', icon: <FileBarChart size={24} />, text: 'Reportes' },
-    { path: '/camara', icon: <Camera size={24} />, text: 'Monitoreo' }, // RUTA DE CÁMARA
+    { path: '/camara', icon: <Camera size={24} />, text: 'Monitoreo' }, 
+    ...(esSuperAdmin ? [{ path: '/terminales', icon: <Cpu size={24} />, text: 'Terminales' }] : []),
   ];
 
   return (
@@ -79,7 +77,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
           <div className="flex items-center gap-2">
             <button onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)} className="focus:outline-none py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-              <span className="text-[15px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wide">Admin</span>
+              <span className="text-[15px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wide">{username}</span>
             </button>
             <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0 border border-slate-100 dark:border-slate-800">
               <img src="/images/logo.png" alt="Logo" className="w-6 h-6 object-contain" />
@@ -169,7 +167,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 >
                  {isActive('/perfil') && <div className="absolute left-0 top-1 bottom-1 w-1 bg-primary rounded-r-md" />}
                  <UserCircle size={24} className={`shrink-0 ${isDesktopCollapsed ? 'group-hover:scale-110 transition-transform' : ''}`} />
-                 {!isDesktopCollapsed && <span className="text-[15px] font-bold whitespace-nowrap ml-3">Admin</span>}
+                 {!isDesktopCollapsed && <span className="text-[15px] font-bold whitespace-nowrap ml-3">{username}</span>}
                </Link>
 
                <button onClick={() => setIsDark(!isDark)} className="p-2.5 rounded-xl text-slate-400 hover:text-primary transition-colors bg-slate-50 dark:bg-slate-800 border border-transparent">

@@ -31,26 +31,34 @@ public class TerminalServiceImpl implements TerminalService {
     @Override
     public Terminal crearTerminal(Terminal terminal) {
         terminal.setActivo(true);
-        terminal.setModoEnrolamiento(false);
         return terminalRepository.save(terminal);
     }
 
     @Override
-    public Terminal cambiarModoEnrolamiento(Long id, boolean estado) {
-        Terminal terminal = obtenerPorId(id);
-        terminal.setModoEnrolamiento(estado);
-        if(estado) {
-            terminal.setUltimoUidLeido(null); // Limpiamos lecturas anteriores al activar
+    public Terminal actualizarTerminal(Long id, Terminal terminalDatosNuevos) {
+        Terminal terminalActual = obtenerPorId(id);
+        terminalActual.setNombre(terminalDatosNuevos.getNombre());
+        terminalActual.setMacAddress(terminalDatosNuevos.getMacAddress());
+        terminalActual.setUbicacion(terminalDatosNuevos.getUbicacion());
+
+        if(terminalDatosNuevos.getActivo() != null){
+            terminalActual.setActivo(terminalDatosNuevos.getActivo());
         }
-        return terminalRepository.save(terminal);
+
+        return terminalRepository.save(terminalActual);
     }
 
     @Override
-    public void reportarPing(String macAddress, String ipLocal) {
-        // Busca la terminal por su MAC, y si existe, actualiza su hora y su IP
+    public void desactivarTerminal(Long id) {
+        Terminal terminal = obtenerPorId(id);
+        terminal.setActivo(false);
+        terminalRepository.save(terminal);
+    }
+
+    @Override
+    public void reportarPing(String macAddress) {
         terminalRepository.findByMacAddressAndActivoTrue(macAddress).ifPresent(terminal -> {
             terminal.setUltimoPing(LocalDateTime.now());
-            terminal.setIpLocal(ipLocal);
             terminalRepository.save(terminal);
         });
     }

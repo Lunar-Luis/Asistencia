@@ -41,13 +41,11 @@ public class AsistenciaServiceImpl implements AsistenciaService {
 
     @Override
     public Asistencia procesarMarcajeHardware(MarcajeHardwareDTO dto) {
+        // 1. Verificamos que la terminal física exista y esté activa
         Terminal terminal = terminalRepository.findByMacAddressAndActivoTrue(dto.macAddress())
                 .orElseThrow(() -> new RuntimeException("Terminal no registrada o inactiva"));
 
-        if (terminal.getModoEnrolamiento()) {
-            throw new RuntimeException("La terminal está en modo enrolamiento, no se puede marcar asistencia.");
-        }
-
+        // 2. Verificamos que la tarjeta NFC pertenezca a un empleado activo
         Empleado empleado = empleadoRepository.findByNfcUidAndActivoTrue(dto.nfcUid())
                 .orElseThrow(() -> new RuntimeException("Tarjeta NFC no reconocida"));
 
@@ -64,13 +62,12 @@ public class AsistenciaServiceImpl implements AsistenciaService {
             if (asistencia.getMarcaSalida() == null) {
 
                 // =================================================================
-                // NUEVA VALIDACIÓN: TIEMPO MÍNIMO PARA SALIDA (Anti Doble-Tap)
+                // VALIDACIÓN: TIEMPO MÍNIMO PARA SALIDA (Anti Doble-Tap)
                 // =================================================================
                 long minutosTranscurridos = Duration.between(asistencia.getMarcaEntrada(), ahora).toMinutes();
 
-                // Aquí defines el tiempo mínimo. Puse 60 minutos como pediste.
-                if (minutosTranscurridos < 60) {
-                    throw new RuntimeException("Doble lectura detectada. Deben pasar al menos 60 minutos para marcar salida.");
+                if (minutosTranscurridos < 15) {
+                    throw new RuntimeException("Doble lectura detectada. Deben pasar al menos 15 minutos para marcar salida.");
                 }
                 // =================================================================
 

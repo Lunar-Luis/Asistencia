@@ -107,13 +107,44 @@ export default function Empleados() {
     }));
   };
 
-  const simularEscaneoNFC = () => {
+  const iniciarEscaneoNFC = async () => {
     setIsScanning(true);
-    setTimeout(() => {
-      const randomUID = Array.from({length: 4}, () => Math.floor(Math.random()*256).toString(16).padStart(2, '0').toUpperCase()).join(':');
-      setFormData(prev => ({ ...prev, nfcUid: randomUID }));
+    
+    try {
+      // 1. Le decimos a Spring Boot que active el modo registro
+      await api.activarModoRegistro();
+      
+      let intentos = 0;
+      const maxIntentos = 15;
+      
+      // 2. Empezamos a preguntar cada segundo
+      const intervalo = setInterval(async () => {
+        intentos++;
+        
+        try {
+          const respuesta = await api.leerTarjetaHardware();
+          
+          if (respuesta && respuesta.nfcUid !== "") {
+            clearInterval(intervalo);
+            setFormData(prev => ({ ...prev, nfcUid: respuesta.nfcUid }));
+            setIsScanning(false);
+            Swal.fire({ title: "¡Tarjeta Detectada!", icon: "success", toast: true, position: "top-end", timer: 3000, showConfirmButton: false });
+          }
+        } catch (error) {
+          console.error(error);
+        }
+
+        if (intentos >= maxIntentos) {
+          clearInterval(intervalo);
+          setIsScanning(false);
+          Swal.fire("Tiempo Agotado", "No pasaste ninguna tarjeta.", "info");
+        }
+      }, 1000);
+      
+    } catch {
       setIsScanning(false);
-    }, 2000);
+      Swal.fire("Error", "No se pudo activar el modo registro en el servidor.", "error");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -330,15 +361,27 @@ export default function Empleados() {
 
                   {/* LECTOR NFC */}
                   <div className={`w-full p-4 sm:p-5 rounded-2xl sm:rounded-3xl border text-center transition-all ${formData.nfcUid ? 'bg-emerald-50 dark:bg-success/10 border-emerald-100 dark:border-success/20 text-emerald-600 dark:text-success' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'}`}>
-                    <label className={`text-[9px] font-bold uppercase block mb-3 tracking-widest ${formData.nfcUid ? 'text-emerald-600 dark:text-success' : 'text-slate-500'}`}>Vínculo Tarjeta NFC</label>
+                    <label className={`text-[9px] font-bold uppercase block mb-3 tracking-widest ${formData.nfcUid ? 'text-emerald-600 dark:text-success' : 'text-slate-500'}`}>
+                      Vínculo Tarjeta NFC
+                    </label>
                     
                     {formData.nfcUid ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <CreditCard size={18} />
-                        <span className="font-mono text-[11px] sm:text-[13px] font-bold tracking-widest">{formData.nfcUid}</span>
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <CreditCard size={18} />
+                          <span className="font-mono text-[11px] sm:text-[13px] font-bold tracking-widest">{formData.nfcUid}</span>
+                        </div>
+                        {/* BOTÓN PARA LIMPIAR Y REASIGNAR TARJETA */}
+                        <button 
+                          type="button" 
+                          onClick={() => setFormData(prev => ({ ...prev, nfcUid: '' }))}
+                          className="text-[10px] uppercase font-bold text-emerald-700/70 hover:text-emerald-700 dark:text-success/70 dark:hover:text-success transition-colors flex items-center justify-center gap-1 mx-auto"
+                        >
+                          <Edit size={12} /> Reasignar Tarjeta
+                        </button>
                       </div>
                     ) : (
-                      <button type="button" onClick={simularEscaneoNFC} disabled={isScanning} className={`w-full py-2.5 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all ${isScanning ? 'bg-primary/20 text-primary cursor-wait' : 'bg-primary text-white hover:bg-indigo-600'}`}>
+                      <button type="button" onClick={iniciarEscaneoNFC} disabled={isScanning} className={`w-full py-2.5 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all ${isScanning ? 'bg-primary/20 text-primary cursor-wait' : 'bg-primary text-white hover:bg-indigo-600'}`}>
                         {isScanning ? <><Wifi size={16} className="animate-pulse" /> Esperando Tarjeta...</> : <><CreditCard size={16} /> Escanear Tarjeta</>}
                       </button>
                     )}
