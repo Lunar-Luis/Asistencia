@@ -1,6 +1,7 @@
 package com.asistencia.backend.services.impl;
 
 import com.asistencia.backend.dtos.MarcajeHardwareDTO;
+import com.asistencia.backend.dtos.DashboardResumenDTO;
 import com.asistencia.backend.entities.Asistencia;
 import com.asistencia.backend.entities.Empleado;
 import com.asistencia.backend.entities.Horario;
@@ -12,8 +13,6 @@ import com.asistencia.backend.repositories.TerminalRepository;
 import com.asistencia.backend.services.AsistenciaService;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -41,11 +40,9 @@ public class AsistenciaServiceImpl implements AsistenciaService {
 
     @Override
     public Asistencia procesarMarcajeHardware(MarcajeHardwareDTO dto) {
-        // 1. Verificamos que la terminal física exista y esté activa
         Terminal terminal = terminalRepository.findByMacAddressAndActivoTrue(dto.macAddress())
                 .orElseThrow(() -> new RuntimeException("Terminal no registrada o inactiva"));
 
-        // 2. Verificamos que la tarjeta NFC pertenezca a un empleado activo
         Empleado empleado = empleadoRepository.findByNfcUidAndActivoTrue(dto.nfcUid())
                 .orElseThrow(() -> new RuntimeException("Tarjeta NFC no reconocida"));
 
@@ -55,26 +52,19 @@ public class AsistenciaServiceImpl implements AsistenciaService {
         Optional<Asistencia> registroDeHoy = asistenciaRepository.findByEmpleadoIdAndFechaRegistro(empleado.getId(), hoy);
 
         if (registroDeHoy.isEmpty()) {
-            // === ES UNA ENTRADA ===
             return registrarEntrada(empleado, terminal, ahora, hoy, dto.fotoUrl());
         } else {
             Asistencia asistencia = registroDeHoy.get();
             if (asistencia.getMarcaSalida() == null) {
 
-                // =================================================================
-                // VALIDACIÓN: TIEMPO MÍNIMO PARA SALIDA (Anti Doble-Tap)
-                // =================================================================
                 long minutosTranscurridos = Duration.between(asistencia.getMarcaEntrada(), ahora).toMinutes();
 
                 if (minutosTranscurridos < 15) {
                     throw new RuntimeException("Doble lectura detectada. Deben pasar al menos 15 minutos para marcar salida.");
                 }
-                // =================================================================
 
-                // === ES UNA SALIDA ===
                 return registrarSalida(asistencia, ahora, dto.fotoUrl());
             } else {
-                // Ya marcó entrada y salida hoy
                 throw new RuntimeException("El empleado ya completó su jornada de hoy.");
             }
         }
@@ -84,10 +74,8 @@ public class AsistenciaServiceImpl implements AsistenciaService {
         Horario horario = empleado.getHorario();
         LocalTime horaRealEntrada = ahora.toLocalTime();
 
-        // Calculamos el límite de tiempo sumando la tolerancia
         LocalTime limiteAceptable = horario.getHoraEntrada().plusMinutes(horario.getToleranciaMinutos());
 
-        // Decidimos si llegó tarde
         EstadoAsistencia estado = horaRealEntrada.isAfter(limiteAceptable) ? EstadoAsistencia.TARDE : EstadoAsistencia.A_TIEMPO;
 
         Asistencia nuevaAsistencia = Asistencia.builder()
@@ -106,14 +94,55 @@ public class AsistenciaServiceImpl implements AsistenciaService {
         asistencia.setMarcaSalida(ahora);
         asistencia.setFotoSalidaUrl(fotoUrl);
 
-        // Calculamos horas trabajadas matemáticamente
+        // ---> CAMBIO CLAVE AQUÍ <---
+        // Calculamos la diferencia exacta en minutos y la guardamos como un número entero (Integer)
         Duration duracion = Duration.between(asistencia.getMarcaEntrada(), ahora);
-        double horas = duracion.toMinutes() / 60.0;
+        int minutosTotales = (int) duracion.toMinutes();
 
-        // Redondeamos a 2 decimales (ej: 8.50 horas)
-        BigDecimal horasTrabajadas = BigDecimal.valueOf(horas).setScale(2, RoundingMode.HALF_UP);
-        asistencia.setHorasTrabajadas(horasTrabajadas);
+        asistencia.setHorasTrabajadas(minutosTotales);
 
         return asistenciaRepository.save(asistencia);
+    }
+
+    @Override
+    public DashboardResumenDTO obtenerResumenDashboard() {
+        LocalDate hoy = LocalDate.now();
+        long totalEmpleados = empleadoRepository.countByActivoTrue();
+
+        List<Asistencia> asistenciasHoy = asistenciaRepository.findAllByFechaRegistro(hoy);
+        long presentesHoy = asistenciasHoy.size();
+        long tardeHoy = asistenciasHoy.stream().filter(a -> a.getEstadoEntrada() == EstadoAsistencia.TARDE).count();
+        long ausentesHoy = Math.max(0, totalEmpleados - presentesHoy);
+
+        java.util.List<com.asistencia.backend.dtos.ChartDataDTO> chartData = new java.util.ArrayList<>();
+
+        for (int i = 4; i >= 0; i--) {
+            LocalDate fechaIteracion = hoy.minusDays(i);
+            List<Asistencia> asisDia = asistenciaRepository.findAllByFechaRegistro(fechaIteracion);
+
+            long aTiempoDia = asisDia.stream().filter(a -> a.getEstadoEntrada() == EstadoAsistencia.A_TIEMPO).count();
+            long tardeDia = asisDia.stream().filter(a -> a.getEstadoEntrada() == EstadoAsistencia.TARDE).count();
+            long ausentesDia = Math.max(0, totalEmpleados - asisDia.size());
+
+            String nombreDia = java.time.format.DateTimeFormatter.ofPattern("EEEE", new java.util.Locale("es", "ES")).format(fechaIteracion);
+            nombreDia = nombreDia.substring(0, 1).toUpperCase() + nombreDia.substring(1);
+
+            if (i == 0) nombreDia = "Hoy";
+
+            chartData.add(com.asistencia.backend.dtos.ChartDataDTO.builder()
+                    .dia(nombreDia)
+                    .aTiempo(aTiempoDia)
+                    .tarde(tardeDia)
+                    .ausentes(ausentesDia)
+                    .build());
+        }
+
+        return DashboardResumenDTO.builder()
+                .totalEmpleados(totalEmpleados)
+                .presentesHoy(presentesHoy)
+                .tardeHoy(tardeHoy)
+                .ausentesHoy(ausentesHoy)
+                .chartData(chartData)
+                .build();
     }
 }

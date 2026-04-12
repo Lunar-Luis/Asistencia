@@ -50,10 +50,10 @@ export default function Empleados() {
         api.getHorarios()
       ]);
       setEmpleados(empleadosData);
-      setCargos(cargosData.filter((c: Cargo) => c.activo)); // Solo cargos activos
-      setHorarios(horariosData.filter((h: Horario) => h.activo)); // Solo horarios activos
+      setCargos(cargosData.filter((c: Cargo) => c.activo)); // Cargos activos para el modal
+      setHorarios(horariosData.filter((h: Horario) => h.activo)); // Horarios activos para el modal
     } catch {
-      Swal.fire("Error", "No se pudieron cargar los datos de la base de datos.", "error");
+      Swal.fire("Error", "No se pudieron cargar los datos.", "error");
     } finally {
       setIsLoading(false);
     }
@@ -101,38 +101,27 @@ export default function Empleados() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: name === 'cargoId' || name === 'horarioId' ? Number(value) : value 
-    }));
+    setFormData(prev => ({ ...prev, [name]: name === 'cargoId' || name === 'horarioId' ? Number(value) : value }));
   };
 
   const iniciarEscaneoNFC = async () => {
     setIsScanning(true);
-    
     try {
-      // 1. Le decimos a Spring Boot que active el modo registro
       await api.activarModoRegistro();
-      
       let intentos = 0;
       const maxIntentos = 15;
       
-      // 2. Empezamos a preguntar cada segundo
       const intervalo = setInterval(async () => {
         intentos++;
-        
         try {
           const respuesta = await api.leerTarjetaHardware();
-          
           if (respuesta && respuesta.nfcUid !== "") {
             clearInterval(intervalo);
             setFormData(prev => ({ ...prev, nfcUid: respuesta.nfcUid }));
             setIsScanning(false);
             Swal.fire({ title: "¡Tarjeta Detectada!", icon: "success", toast: true, position: "top-end", timer: 3000, showConfirmButton: false });
           }
-        } catch (error) {
-          console.error(error);
-        }
+        } catch (error) { console.error(error); }
 
         if (intentos >= maxIntentos) {
           clearInterval(intervalo);
@@ -140,7 +129,6 @@ export default function Empleados() {
           Swal.fire("Tiempo Agotado", "No pasaste ninguna tarjeta.", "info");
         }
       }, 1000);
-      
     } catch {
       setIsScanning(false);
       Swal.fire("Error", "No se pudo activar el modo registro en el servidor.", "error");
@@ -153,7 +141,6 @@ export default function Empleados() {
       Swal.fire("Atención", "Debes crear al menos un Cargo y un Horario antes de registrar empleados.", "warning");
       return;
     }
-
     const isDark = document.documentElement.classList.contains('dark');
     try {
       if (modalMode === 'add') {
@@ -163,13 +150,7 @@ export default function Empleados() {
       }
       setIsModalOpen(false);
       fetchDatos();
-      Swal.fire({ 
-        title: modalMode === 'add' ? '¡Registrado!' : '¡Actualizado!', 
-        text: `El empleado ha sido guardado correctamente en la base de datos.`,
-        icon: 'success', 
-        background: isDark ? '#0f172a' : '#fff', color: isDark ? '#f8fafc' : '#334155', 
-        customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' } 
-      });
+      Swal.fire({ title: modalMode === 'add' ? '¡Registrado!' : '¡Actualizado!', text: `El empleado ha sido guardado correctamente.`, icon: 'success', background: isDark ? '#0f172a' : '#fff', color: isDark ? '#f8fafc' : '#334155', customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' } });
     } catch {
       Swal.fire("Error", "Hubo un problema. Verifica que la cédula, correo o UID NFC no estén repetidos.", "error");
     }
@@ -183,23 +164,18 @@ export default function Empleados() {
       title: isActivating ? '¿Activar empleado?' : '¿Dar de baja?', 
       text: isActivating ? `${emp.nombre} volverá a tener acceso.` : `${emp.nombre} perderá el acceso al sistema.`, 
       icon: isActivating ? 'info' : 'warning', 
-      showCancelButton: true, 
-      confirmButtonColor: isActivating ? '#10b981' : '#f59e0b', 
-      cancelButtonColor: '#94a3b8', 
+      showCancelButton: true, confirmButtonColor: isActivating ? '#10b981' : '#ef4444', cancelButtonColor: '#94a3b8', 
       confirmButtonText: isActivating ? 'Sí, activar' : 'Sí, desactivar', 
-      background: isDark ? '#0f172a' : '#fff', color: isDark ? '#f8fafc' : '#334155', 
-      customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' } 
+      background: isDark ? '#0f172a' : '#fff', color: isDark ? '#f8fafc' : '#334155', customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' } 
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
           if (isActivating) {
-            // Mandamos a actualizar con activo en true
             await api.actualizarEmpleado(emp.id!, {
               nombre: emp.nombre, apellido: emp.apellido, cedula: emp.cedula, correo: emp.correo,
               telefono: emp.telefono, nfcUid: emp.nfcUid, cargoId: emp.cargo!.id!, horarioId: emp.horario!.id!, activo: true
             });
           } else {
-            // Mandamos al endpoint de desactivar
             await api.desactivarEmpleado(emp.id!);
           }
           fetchDatos();
@@ -269,37 +245,44 @@ export default function Empleados() {
           ) : (
             <AnimatePresence mode="popLayout">
               {filteredEmpleados.map((emp, index) => (
-                <motion.div key={emp.id} layout {...animProps} transition={{ delay: index * 0.05 }} className={`${cardStyle} flex flex-col group ${actionHoverEffect} ${!emp.activo ? 'opacity-75 hover:opacity-100 grayscale-[0.3]' : ''}`}>
-                  <div className={`absolute top-5 right-5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase ${emp.activo ? 'bg-emerald-50 text-emerald-600 dark:bg-success/10 dark:text-success' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
-                    ● {emp.activo ? 'Activo' : 'Inactivo'}
+                <motion.div 
+                  key={emp.id} 
+                  layout 
+                  {...animProps} 
+                  transition={{ delay: index * 0.05 }} 
+                  className={`${cardStyle} flex flex-col group ${actionHoverEffect} ${!emp.activo ? 'opacity-70 bg-slate-50/80 dark:bg-slate-900/60' : ''}`}
+                >
+                  
+                  <div className={`absolute top-5 right-5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase flex items-center gap-1.5 ${emp.activo ? 'bg-emerald-50 text-emerald-600 dark:bg-success/10 dark:text-success' : 'bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+                    <span className={emp.activo ? "w-1.5 h-1.5 rounded-full bg-emerald-500" : ""}></span> {emp.activo ? 'Activo' : 'Inactivo'}
                   </div>
                   
                   <div className="flex items-center gap-4 mb-4">
-                    <div className="w-16 h-16 rounded-[1rem] bg-primary/10 flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm group-hover:scale-105 transition-transform duration-300 shrink-0 text-xl font-black text-primary">
+                    <div className={`w-16 h-16 rounded-[1rem] flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm group-hover:scale-105 transition-transform duration-300 shrink-0 text-xl font-black ${emp.activo ? 'bg-primary/10 text-primary' : 'bg-slate-200 dark:bg-slate-800 text-slate-400'}`}>
                       {emp.fotoUrl ? (
-                        <img src={emp.fotoUrl} alt={emp.nombre} className="w-full h-full object-cover" />
+                        <img src={emp.fotoUrl} alt={emp.nombre} className={`w-full h-full object-cover ${!emp.activo ? 'grayscale opacity-75' : ''}`} />
                       ) : (
                         `${emp.nombre.charAt(0)}${emp.apellido.charAt(0)}`
                       )}
                     </div>
                     <div className="min-w-0 pr-10">
-                      <h3 className="text-base font-bold text-slate-800 dark:text-white leading-tight truncate">{emp.nombre} {emp.apellido}</h3>
-                      <p className="text-xs font-semibold text-primary uppercase tracking-widest mt-1 mb-1 truncate">{emp.cargo?.nombre || 'Sin Cargo'}</p>
+                      <h3 className={`text-base font-bold leading-tight truncate ${emp.activo ? 'text-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>{emp.nombre} {emp.apellido}</h3>
+                      <p className={`text-xs font-semibold uppercase tracking-widest mt-1 mb-1 truncate ${emp.activo ? 'text-primary' : 'text-slate-500'}`}>{emp.cargo?.nombre || 'Sin Cargo'}</p>
                       <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase truncate font-mono">UID: {emp.nfcUid || 'No asignado'}</p>
                     </div>
                   </div>
 
                   <div className="space-y-2 mb-6 flex-1">
                     <div className="flex items-center gap-3 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                      <div className="w-6 h-6 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-primary shrink-0"><Mail size={12}/></div>
+                      <div className="w-6 h-6 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center shrink-0"><Mail size={12} className={emp.activo ? 'text-primary' : 'text-slate-400'}/></div>
                       <span className="truncate">{emp.correo}</span>
                     </div>
                     <div className="flex items-center gap-3 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                      <div className="w-6 h-6 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-primary shrink-0"><Phone size={12}/></div>
+                      <div className="w-6 h-6 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center shrink-0"><Phone size={12} className={emp.activo ? 'text-primary' : 'text-slate-400'}/></div>
                       <span className="truncate">{emp.telefono}</span>
                     </div>
                     <div className="flex items-center gap-3 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                      <div className="w-6 h-6 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-primary shrink-0"><IdCard size={12}/></div>
+                      <div className="w-6 h-6 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center shrink-0"><IdCard size={12} className={emp.activo ? 'text-primary' : 'text-slate-400'}/></div>
                       <span className="truncate">{emp.cedula}</span>
                     </div>
                   </div>
@@ -307,11 +290,11 @@ export default function Empleados() {
                   <div className="grid grid-cols-2 gap-4 py-3 border-t border-slate-50 dark:border-slate-800/50 mb-3">
                     <div>
                       <p className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 mb-1">Horario Asignado</p>
-                      <p className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{emp.horario?.nombre || 'Ninguno'}</p>
+                      <p className={`text-xs font-bold truncate ${emp.activo ? 'text-slate-700 dark:text-slate-300' : 'text-slate-500'}`}>{emp.horario?.nombre || 'Ninguno'}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 mb-1">Fecha de Ingreso</p>
-                      <p className="text-xs font-bold text-slate-700 dark:text-slate-300">{emp.fechaIngreso || 'N/A'}</p>
+                      <p className={`text-xs font-bold ${emp.activo ? 'text-slate-700 dark:text-slate-300' : 'text-slate-500'}`}>{emp.fechaIngreso || 'N/A'}</p>
                     </div>
                   </div>
 
@@ -319,13 +302,15 @@ export default function Empleados() {
                     <button onClick={() => handleOpenModal('edit', emp)} className="flex-1 flex justify-center items-center gap-1.5 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 py-3 rounded-xl text-[11px] font-bold uppercase hover:bg-primary hover:text-white dark:hover:bg-primary transition-all duration-150 border border-transparent hover:border-primary/20">
                       <Edit size={14} /> <span className="italic truncate">Editar</span>
                     </button>
+                    
+                    {/* BOTONES DE ACCIÓN MEJORADOS */}
                     {emp.activo ? (
-                      <button onClick={() => handleToggleStatus(emp)} className="flex-1 flex justify-center items-center gap-1.5 py-3 rounded-xl text-[11px] font-bold uppercase transition-all border border-transparent bg-amber-50 dark:bg-warning/10 text-amber-600 dark:text-warning hover:bg-amber-500 hover:text-white dark:hover:bg-warning">
-                        <PowerOff size={14} /> <span className="italic truncate">Desactivar</span>
+                      <button onClick={() => handleToggleStatus(emp)} className="flex-1 flex justify-center items-center gap-1.5 py-3 rounded-xl text-[11px] font-bold uppercase transition-all border border-transparent bg-red-50 text-red-600 hover:bg-red-500 hover:text-white dark:bg-danger/10 dark:text-danger dark:hover:bg-danger">
+                        <PowerOff size={14} /> <span className="italic truncate">Dar de Baja</span>
                       </button>
                     ) : (
-                      <button onClick={() => handleToggleStatus(emp)} className="flex-1 flex justify-center items-center gap-1.5 py-3 rounded-xl text-[11px] font-bold uppercase transition-all border border-transparent bg-emerald-50 dark:bg-success/10 text-emerald-600 dark:text-success hover:bg-emerald-500 hover:text-white dark:hover:bg-success">
-                        <CheckCircle2 size={14} /> <span className="italic truncate">Activar</span>
+                      <button onClick={() => handleToggleStatus(emp)} className="flex-1 flex justify-center items-center gap-1.5 py-3 rounded-xl text-[11px] font-bold uppercase transition-all border border-transparent bg-slate-800 text-white hover:bg-emerald-500 dark:bg-white dark:text-slate-900 dark:hover:bg-success shadow-md">
+                        <CheckCircle2 size={14} /> <span className="italic truncate">Reactivar</span>
                       </button>
                     )}
                   </div>
@@ -336,7 +321,7 @@ export default function Empleados() {
         </div> 
       </main>
 
-      {/* MODAL DE REGISTRO/EDICIÓN */}
+      {/* MODAL (SIN CAMBIOS) */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 bg-slate-900/60 z-[200] flex justify-center items-center p-4 backdrop-blur-sm">
@@ -371,7 +356,6 @@ export default function Empleados() {
                           <CreditCard size={18} />
                           <span className="font-mono text-[11px] sm:text-[13px] font-bold tracking-widest">{formData.nfcUid}</span>
                         </div>
-                        {/* BOTÓN PARA LIMPIAR Y REASIGNAR TARJETA */}
                         <button 
                           type="button" 
                           onClick={() => setFormData(prev => ({ ...prev, nfcUid: '' }))}

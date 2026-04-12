@@ -58,7 +58,7 @@ export default function Terminales() {
 
   useEffect(() => {
     fetchDatos();
-    const intervalo = setInterval(fetchDatos, 10000); // Autorefresco para el Ping (10s)
+    const intervalo = setInterval(fetchDatos, 30000); 
     return () => clearInterval(intervalo);
   }, []);
 
@@ -122,7 +122,7 @@ export default function Terminales() {
       title: isActivating ? '¿Activar terminal?' : '¿Desactivar terminal?', 
       text: isActivating ? `La terminal volverá a recibir asistencias.` : `Se bloquearán las asistencias de este dispositivo.`, 
       icon: isActivating ? 'info' : 'warning', 
-      showCancelButton: true, confirmButtonColor: isActivating ? '#10b981' : '#f59e0b', cancelButtonColor: '#94a3b8', 
+      showCancelButton: true, confirmButtonColor: isActivating ? '#10b981' : '#ef4444', cancelButtonColor: '#94a3b8', 
       confirmButtonText: isActivating ? 'Sí, activar' : 'Sí, desactivar', 
       background: isDark ? '#0f172a' : '#fff', color: isDark ? '#f8fafc' : '#334155', customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' } 
     }).then(async (result) => {
@@ -142,13 +142,12 @@ export default function Terminales() {
     });
   };
 
-  // Función para determinar si está online (Ping recibido en los últimos 2 minutos)
   const isOnline = (ultimoPing?: string) => {
     if (!ultimoPing) return false;
     const pingTime = new Date(ultimoPing).getTime();
     const currentTime = new Date().getTime();
     const diffMinutes = (currentTime - pingTime) / (1000 * 60);
-    return diffMinutes <= 2;
+    return diffMinutes <= 16; 
   };
 
   return (
@@ -197,36 +196,37 @@ export default function Terminales() {
                  <Cpu size={32} className="text-slate-300 dark:text-slate-600" />
                </div>
                <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 mb-1">No hay terminales</h3>
-               <p className="text-xs font-medium text-slate-500 dark:text-slate-500">Registra tu primer ESP32</p>
+               <p className="text-xs font-medium text-slate-500 dark:text-slate-500">No se encontraron resultados</p>
              </div>
           ) : (
             <AnimatePresence mode="popLayout">
               {filteredTerminales.map((terminal, index) => {
-                const online = isOnline(terminal.ultimoPing);
+                const online = terminal.activo ? isOnline(terminal.ultimoPing) : false;
                 
                 return (
-                <motion.div key={terminal.id} layout {...animProps} transition={{ delay: index * 0.05 }} className={`${cardStyle} flex flex-col group ${actionHoverEffect} ${!terminal.activo ? 'opacity-75 hover:opacity-100 grayscale-[0.3]' : ''}`}>
+                <motion.div key={terminal.id} layout {...animProps} transition={{ delay: index * 0.05 }} className={`${cardStyle} flex flex-col group ${actionHoverEffect} ${!terminal.activo ? 'opacity-70 bg-slate-50/80 dark:bg-slate-900/60' : ''}`}>
+                  
                   {/* BUBBLE ESTADO ONLINE/OFFLINE */}
-                  <div className={`absolute top-5 right-5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase flex items-center gap-1.5 ${online ? 'bg-emerald-50 text-emerald-600 dark:bg-success/10 dark:text-success' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
-                    <Wifi size={10} className={online ? "animate-pulse" : ""} /> {online ? 'Online' : 'Offline'}
+                  <div className={`absolute top-5 right-5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase flex items-center gap-1.5 ${!terminal.activo ? 'bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400' : online ? 'bg-emerald-50 text-emerald-600 dark:bg-success/10 dark:text-success' : 'bg-rose-50 text-rose-600 dark:bg-danger/10 dark:text-danger'}`}>
+                    <Wifi size={10} className={online && terminal.activo ? "animate-pulse" : ""} /> {!terminal.activo ? 'Apagado' : online ? 'Online' : 'Offline'}
                   </div>
 
                   <div className="flex items-center gap-4 mb-4">
-                    <div className="w-16 h-16 rounded-[1rem] bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm shrink-0 group-hover:scale-105 transition-transform duration-300">
+                    <div className={`w-16 h-16 rounded-[1rem] ${terminal.activo ? 'bg-primary/10 text-primary' : 'bg-slate-200 dark:bg-slate-800 text-slate-400'} flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm shrink-0 group-hover:scale-105 transition-transform duration-300`}>
                       <Cpu size={26} />
                     </div>
                     <div className="min-w-0 pr-16">
-                      <h3 className="text-base font-bold text-slate-800 dark:text-white leading-tight truncate">{terminal.nombre}</h3>
-                      <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase truncate font-mono mt-1">
+                      <h3 className={`text-base font-bold leading-tight truncate ${terminal.activo ? 'text-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>{terminal.nombre}</h3>
+                      <p className="text-[11px] font-medium text-slate-500 dark:text-slate-500 uppercase truncate font-mono mt-1">
                         {terminal.macAddress}
                       </p>
                     </div>
                   </div>
 
                   <div className="space-y-2 mb-6 flex-1">
-                    <div className="flex items-center gap-3 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                      <div className="w-6 h-6 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-primary shrink-0">
-                        <MapPin size={12} />
+                    <div className="flex items-center gap-3 text-xs font-semibold text-slate-600 dark:text-slate-400">
+                      <div className="w-6 h-6 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center shrink-0">
+                        <MapPin size={12} className={terminal.activo ? "text-primary" : "text-slate-400"} />
                       </div>
                       <span className="truncate leading-relaxed">{terminal.ubicacion}</span>
                     </div>
@@ -236,13 +236,15 @@ export default function Terminales() {
                     <button onClick={() => handleOpenModal('edit', terminal)} className="flex-1 flex justify-center items-center gap-1.5 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 py-3 rounded-xl text-[11px] font-bold uppercase hover:bg-primary hover:text-white dark:hover:bg-primary transition-all duration-150 border border-transparent hover:border-primary/20">
                       <Edit size={14} /> <span className="italic truncate">Editar</span>
                     </button>
+                    
+                    {/* BOTONES DE ACCIÓN MEJORADOS */}
                     {terminal.activo ? (
-                      <button onClick={() => handleToggleStatus(terminal)} className="flex-1 flex justify-center items-center gap-1.5 py-3 rounded-xl text-[11px] font-bold uppercase transition-all border border-transparent bg-amber-50 dark:bg-warning/10 text-amber-600 dark:text-warning hover:bg-amber-500 hover:text-white dark:hover:bg-warning">
+                      <button onClick={() => handleToggleStatus(terminal)} className="flex-1 flex justify-center items-center gap-1.5 py-3 rounded-xl text-[11px] font-bold uppercase transition-all border border-transparent bg-red-50 text-red-600 hover:bg-red-500 hover:text-white dark:bg-danger/10 dark:text-danger dark:hover:bg-danger">
                         <PowerOff size={14} /> <span className="italic truncate">Desactivar</span>
                       </button>
                     ) : (
-                      <button onClick={() => handleToggleStatus(terminal)} className="flex-1 flex justify-center items-center gap-1.5 py-3 rounded-xl text-[11px] font-bold uppercase transition-all border border-transparent bg-emerald-50 dark:bg-success/10 text-emerald-600 dark:text-success hover:bg-emerald-500 hover:text-white dark:hover:bg-success">
-                        <CheckCircle2 size={14} /> <span className="italic truncate">Activar</span>
+                      <button onClick={() => handleToggleStatus(terminal)} className="flex-1 flex justify-center items-center gap-1.5 py-3 rounded-xl text-[11px] font-bold uppercase transition-all border border-transparent bg-slate-800 text-white hover:bg-emerald-500 dark:bg-white dark:text-slate-900 dark:hover:bg-success shadow-md">
+                        <CheckCircle2 size={14} /> <span className="italic truncate">Reactivar</span>
                       </button>
                     )}
                   </div>

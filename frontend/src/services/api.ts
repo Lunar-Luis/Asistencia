@@ -167,6 +167,25 @@ export interface Asistencia {
 
 /**
  * ==========================================
+ * INTERFACES: DASHBOARD
+ * ==========================================
+ */
+export interface DashboardResumen {
+  totalEmpleados: number;
+  presentesHoy: number;
+  tardeHoy: number;
+  ausentesHoy: number;
+  // ---> NUEVO: Datos para la gráfica <---
+  chartData: {
+    dia: string;
+    aTiempo: number;
+    tarde: number;
+    ausentes: number;
+  }[];
+}
+
+/**
+ * ==========================================
  * ENDPOINTS: CARGOS
  * ==========================================
  */
@@ -217,3 +236,10 @@ export const desactivarTerminal = (id: number) => fetchAuth(`/terminales/${id}`,
  */
 // Obtiene el historial completo de asistencias desde la base de datos
 export const getAsistencias = () => fetchAuth('/asistencias');
+
+/**
+ * ==========================================
+ * ENDPOINTS: DASHBOARD
+ * ==========================================
+ */
+export const getDashboardResumen = () => fetchAuth('/asistencias/dashboard/resumen');

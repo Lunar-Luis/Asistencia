@@ -19,7 +19,9 @@ public class TerminalServiceImpl implements TerminalService {
 
     @Override
     public List<Terminal> obtenerTerminalesActivas() {
-        return terminalRepository.findAllByActivoTrue();
+        // ---> CAMBIO CLAVE AQUÍ <---
+        // Devolvemos TODAS las terminales (activas e inactivas) para que React pueda mostrarlas en gris.
+        return terminalRepository.findAll();
     }
 
     @Override

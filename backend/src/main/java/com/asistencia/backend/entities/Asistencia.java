@@ -3,7 +3,6 @@ package com.asistencia.backend.entities;
 import com.asistencia.backend.enums.EstadoAsistencia;
 import jakarta.persistence.*;
 import lombok.*;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -37,8 +36,9 @@ public class Asistencia {
     @Column(name = "estado_entrada", nullable = false)
     private EstadoAsistencia estadoEntrada;
 
-    @Column(name = "horas_trabajadas", precision = 5, scale = 2)
-    private BigDecimal horasTrabajadas;
+    // ---> CAMBIO CLAVE AQUÍ <---
+    @Column(name = "horas_trabajadas")
+    private Integer horasTrabajadas; // Ahora guardará el total de minutos (ej. 31)
 
     @Column(name = "foto_entrada_url")
     private String fotoEntradaUrl;

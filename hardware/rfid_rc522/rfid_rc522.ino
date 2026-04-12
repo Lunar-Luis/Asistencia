@@ -10,7 +10,7 @@ const char* ssid = "Kious-2025";
 const char* password = "anurbe29985921";
 
 // REEMPLAZA LA IP POR LA IPv4 DE TU COMPUTADORA
-const String serverIP = "192.168.1.8"; // <-- Extraje solo la IP para que sea más fácil armar las URLs
+const String serverIP = "192.168.1.8"; 
 const String urlAsistencia = "http://" + serverIP + ":8080/api/asistencias/hardware/marcar"; 
 const String urlPing = "http://" + serverIP + ":8080/api/terminales/hardware/ping";
 
@@ -27,7 +27,8 @@ String macAddress = "";
 // 3. VARIABLES PARA EL PING DE ESTADO ONLINE
 // ==========================================
 unsigned long ultimoPingTime = 0;          
-const unsigned long intervaloPing = 600000; // Enviar ping cada 600000 milisegundos (10 minutos)
+// ---> CAMBIO CLAVE AQUÍ: 15 MINUTOS (15 * 60 * 1000) <---
+const unsigned long intervaloPing = 900000; // Enviar ping cada 900,000 milisegundos
 
 
 void setup() {
@@ -63,7 +64,7 @@ void setup() {
 
 void loop() {
   // ========================================================
-  // LÓGICA 1: PING DE VIDA (Se ejecuta cada 60 segundos)
+  // LÓGICA 1: PING DE VIDA (Se ejecuta cada 15 minutos)
   // ========================================================
   if (millis() - ultimoPingTime >= intervaloPing) {
     enviarPingDeVida();
