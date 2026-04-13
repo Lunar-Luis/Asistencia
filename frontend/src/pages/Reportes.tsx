@@ -14,6 +14,12 @@ import {
   FileSearch,
   User,
 } from "lucide-react";
+import Swal from "sweetalert2";
+
+// LIBRERÍAS DE EXPORTACIÓN
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 // IMPORTAMOS LA API REAL Y SUS TIPOS
 import * as api from "../services/api";
@@ -129,12 +135,20 @@ const formatearEstado = (estado: string) => {
   return estado;
 };
 
-// ---> NUEVA FUNCIÓN: Convierte minutos totales (ej: 135) a texto (ej: "2h 15m") <---
 const formatearMinutosAHoras = (minutosTotales: number | null | undefined) => {
   if (minutosTotales === null || minutosTotales === undefined) return "---";
   const horas = Math.floor(minutosTotales / 60);
   const minutosRestantes = minutosTotales % 60;
   return `${horas}h ${minutosRestantes.toString().padStart(2, "0")}m`;
+};
+
+// Función para obtener la fecha local correcta en YYYY-MM-DD
+const obtenerFechaLocal = () => {
+  const hoy = new Date();
+  const year = hoy.getFullYear();
+  const month = String(hoy.getMonth() + 1).padStart(2, "0");
+  const day = String(hoy.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
 export default function Reportes() {
@@ -144,16 +158,8 @@ export default function Reportes() {
   const [listaCargos, setListaCargos] = useState<Cargo[]>([]);
 
   const [tipoReporte, setTipoReporte] = useState("diario");
-  // Función para obtener "YYYY-MM-DD" en la zona horaria LOCAL del usuario
-  const obtenerFechaLocal = () => {
-    const hoy = new Date();
-    const year = hoy.getFullYear();
-    const month = String(hoy.getMonth() + 1).padStart(2, "0");
-    const day = String(hoy.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  };
-
   const HOY = obtenerFechaLocal();
+
   const [fechaDesde, setFechaDesde] = useState(HOY);
   const [fechaHasta, setFechaHasta] = useState(HOY);
   const [empleadoFiltro, setEmpleadoFiltro] = useState("all");
@@ -188,23 +194,23 @@ export default function Reportes() {
 
     const baseDate = new Date();
 
-    if (nuevoTipo === 'diario') {
+    if (nuevoTipo === "diario") {
       setFechaDesde(HOY);
       setFechaHasta(HOY);
-    } else if (nuevoTipo === 'semanal') {
-      const past = new Date(baseDate); past.setDate(past.getDate() - 7);
-      // Extraemos localmente
+    } else if (nuevoTipo === "semanal") {
+      const past = new Date(baseDate);
+      past.setDate(past.getDate() - 7);
       const y = past.getFullYear();
-      const m = String(past.getMonth() + 1).padStart(2, '0');
-      const d = String(past.getDate()).padStart(2, '0');
+      const m = String(past.getMonth() + 1).padStart(2, "0");
+      const d = String(past.getDate()).padStart(2, "0");
       setFechaDesde(`${y}-${m}-${d}`);
       setFechaHasta(HOY);
-    } else if (nuevoTipo === 'mensual') {
-      const past = new Date(baseDate); past.setDate(past.getDate() - 30);
-      // Extraemos localmente
+    } else if (nuevoTipo === "mensual") {
+      const past = new Date(baseDate);
+      past.setDate(past.getDate() - 30);
       const y = past.getFullYear();
-      const m = String(past.getMonth() + 1).padStart(2, '0');
-      const d = String(past.getDate()).padStart(2, '0');
+      const m = String(past.getMonth() + 1).padStart(2, "0");
+      const d = String(past.getDate()).padStart(2, "0");
       setFechaDesde(`${y}-${m}-${d}`);
       setFechaHasta(HOY);
     }
@@ -219,7 +225,6 @@ export default function Reportes() {
       const todoElHistorial = await api.getAsistencias();
 
       // 2. Aplicamos el filtrado localmente
-      // ---> AÑADIMOS EL TIPO AQUÍ: (item: Asistencia) <---
       const datosFiltrados = todoElHistorial.filter((item: Asistencia) => {
         const itemDate = new Date(item.fechaRegistro).getTime();
         const desdeDate = new Date(fechaDesde).getTime();
@@ -229,7 +234,7 @@ export default function Reportes() {
         const matchEmpleado =
           empleadoFiltro === "all"
             ? true
-            : item.empleado.id.toString() === empleadoFiltro;
+            : item.empleado.id?.toString() === empleadoFiltro;
         const matchCargo =
           cargoFiltro === "all"
             ? true
@@ -247,7 +252,6 @@ export default function Reportes() {
       });
 
       // Ordenamos para que los más recientes salgan arriba
-      // ---> AÑADIMOS EL TIPO AQUÍ: (a: Asistencia, b: Asistencia) <---
       datosFiltrados.sort(
         (a: Asistencia, b: Asistencia) =>
           new Date(b.marcaEntrada).getTime() -
@@ -258,6 +262,7 @@ export default function Reportes() {
       setReporteGenerado(true);
     } catch (error) {
       console.error("Error generando el reporte", error);
+      Swal.fire("Error", "No se pudo generar el reporte", "error");
     } finally {
       setIsGenerating(false);
     }
@@ -274,6 +279,171 @@ export default function Reportes() {
       total: datosReporte.length,
     };
   }, [datosReporte]);
+
+  // =========================================================
+  // FUNCIONES DE EXPORTACIÓN FORMAL
+  // =========================================================
+
+  const prepararDatosParaExportar = () => {
+    return datosReporte.map((row) => ({
+      Empleado: `${row.empleado.nombre} ${row.empleado.apellido}`,
+      "Cargo/Depto": row.empleado.cargo?.nombre || "Sin Cargo",
+      Fecha: row.fechaRegistro,
+      Entrada: formatearHora(row.marcaEntrada),
+      Salida: row.marcaSalida ? formatearHora(row.marcaSalida) : "---",
+      Total: formatearMinutosAHoras(row.horasTrabajadas),
+      Estado: formatearEstado(row.estadoEntrada),
+    }));
+  };
+
+  // Función auxiliar para cargar el logo y convertirlo a Base64 para jsPDF
+  const cargarImagenBase64 = async (url: string): Promise<string> => {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  const exportarPDF = async () => {
+    if (datosReporte.length === 0) return;
+
+    setIsGenerating(true);
+
+    try {
+      const doc = new jsPDF();
+      const hoyFull = new Date().toLocaleString();
+      const datosMapeados = prepararDatosParaExportar();
+
+      // --- 1. ENCABEZADO INSTITUCIONAL ---
+      doc.setFillColor(79, 70, 229); // Color Primary (Indigo 600)
+      doc.rect(0, 0, 210, 40, "F"); // Franja superior
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(22);
+      doc.setFont("helvetica", "bold");
+      doc.text("SISTEMA DE ASISTENCIA", 14, 22);
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text("REPORTE ADMINISTRATIVO DE PERSONAL", 14, 30);
+
+      // --- AGREGAR LOGO ---
+      try {
+        const logoBase64 = await cargarImagenBase64("/images/logo.png");
+        // Posición: X:170 (Alineado a la derecha, pero con margen), Y:8
+        doc.addImage(logoBase64, "PNG", 170, 8, 24, 24);
+      } catch (error) {
+        console.warn("No se pudo cargar el logo para el PDF", error);
+      }
+
+      // --- 2. INFORMACIÓN DEL REPORTE ---
+      doc.setTextColor(51, 65, 85); // Slate 700
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Resumen del Periodo", 14, 50);
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Desde: ${fechaDesde}`, 14, 57);
+      doc.text(`Hasta: ${fechaHasta}`, 14, 62);
+      doc.text(`Generado el: ${hoyFull}`, 140, 57);
+      doc.text(`Total registros: ${datosReporte.length}`, 140, 62);
+
+      // --- 3. TABLA DE DATOS ---
+      const headers = Object.keys(datosMapeados[0]);
+      const data = datosMapeados.map((obj) => Object.values(obj));
+
+      autoTable(doc, {
+        head: [headers],
+        body: data,
+        startY: 70,
+        theme: "striped",
+        headStyles: {
+          fillColor: [79, 70, 229],
+          textColor: 255,
+          fontSize: 9,
+          fontStyle: "bold",
+          halign: "center",
+        },
+        styles: {
+          fontSize: 8,
+          cellPadding: 3,
+          valign: "middle",
+        },
+        columnStyles: {
+          0: { fontStyle: "bold", cellWidth: 45 }, // Empleado
+          5: { halign: "center", fontStyle: "bold" },
+          6: { halign: "right" },
+        },
+        // --- 4. PIE DE PÁGINA ---
+        didDrawPage: (dataArg) => {
+          const str = "Página " + doc.getCurrentPageInfo().pageNumber;
+          doc.setFontSize(8);
+          const pageHeight = doc.internal.pageSize.height;
+          doc.text(str, dataArg.settings.margin.left, pageHeight - 10);
+          doc.text(
+            "Documento oficial de control interno",
+            150,
+            pageHeight - 10
+          );
+        },
+      });
+
+      doc.save(`Reporte_Asistencia_${fechaDesde}.pdf`);
+    } catch (error) {
+      console.error("Error generando PDF", error);
+      Swal.fire("Error", "Ocurrió un problema al generar el PDF.", "error");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const exportarExcel = () => {
+    if (datosReporte.length === 0) return;
+
+    const datosMapeados = prepararDatosParaExportar();
+
+    const infoHeader = [
+      ["REPORTE DE ASISTENCIA PERSONAL"],
+      [`Periodo: ${fechaDesde} al ${fechaHasta}`],
+      [`Generado: ${new Date().toLocaleString()}`],
+      [], // Fila vacía
+    ];
+
+    // Crear una hoja vacía
+    const worksheet = XLSX.utils.json_to_sheet([]);
+
+    // Añadir el título en la celda A1
+    XLSX.utils.sheet_add_aoa(worksheet, infoHeader, { origin: "A1" });
+
+    // Añadir los datos JSON empezando desde la fila 5 (A5)
+    XLSX.utils.sheet_add_json(worksheet, datosMapeados, {
+      origin: "A5",
+      skipHeader: false,
+    });
+
+    if (!worksheet["!merges"]) worksheet["!merges"] = [];
+    worksheet["!merges"].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } });
+
+    worksheet["!cols"] = [
+      { wch: 30 }, // Empleado
+      { wch: 25 }, // Cargo
+      { wch: 15 }, // Fecha
+      { wch: 12 }, // Entrada
+      { wch: 12 }, // Salida
+      { wch: 15 }, // Horas
+      { wch: 15 }, // Estado
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Asistencias");
+
+    XLSX.writeFile(workbook, `Reporte_Asistencia_${fechaDesde}.xlsx`);
+  };
 
   return (
     <main className="pb-8 max-w-[1600px] mx-auto">
@@ -597,10 +767,16 @@ export default function Reportes() {
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-                      <button className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-red-50 dark:bg-danger/10 text-red-500 dark:text-danger hover:bg-red-500 hover:text-white transition-all rounded-xl font-bold uppercase text-[11px] tracking-widest border border-transparent hover:border-red-200">
+                      <button
+                        onClick={exportarPDF}
+                        className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-red-50 dark:bg-danger/10 text-red-500 dark:text-danger hover:bg-red-500 hover:text-white transition-all rounded-xl font-bold uppercase text-[11px] tracking-widest border border-transparent hover:border-red-200"
+                      >
                         <FileType size={18} /> PDF
                       </button>
-                      <button className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-emerald-50 dark:bg-success/10 text-emerald-600 dark:text-success hover:bg-emerald-600 hover:text-white transition-all rounded-xl font-bold uppercase text-[11px] tracking-widest border border-transparent hover:border-emerald-200">
+                      <button
+                        onClick={exportarExcel}
+                        className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-emerald-50 dark:bg-success/10 text-emerald-600 dark:text-success hover:bg-emerald-600 hover:text-white transition-all rounded-xl font-bold uppercase text-[11px] tracking-widest border border-transparent hover:border-emerald-200"
+                      >
                         <FileSpreadsheet size={18} /> Excel
                       </button>
                     </div>
@@ -665,7 +841,6 @@ export default function Reportes() {
                                 </span>
                               </td>
                               <td className="p-4 text-center">
-                                {/* ---> AQUÍ LLAMAMOS A LA NUEVA FUNCIÓN <--- */}
                                 <span
                                   className={`text-[13px] font-black ${row.horasTrabajadas ? "text-primary" : "text-slate-400"}`}
                                 >
@@ -685,7 +860,10 @@ export default function Reportes() {
                       </table>
                     ) : (
                       <div className="py-12 text-center text-slate-500 dark:text-slate-400">
-                        <Search size={40} className="mx-auto mb-4 opacity-50" />
+                        <Search
+                          size={40}
+                          className="mx-auto mb-4 opacity-50"
+                        />
                         <p className="text-sm font-bold uppercase tracking-widest">
                           No se encontraron resultados
                         </p>
