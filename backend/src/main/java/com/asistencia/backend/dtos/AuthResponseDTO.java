@@ -1,3 +1,8 @@
 package com.asistencia.backend.dtos;
 
-public record AuthResponseDTO(String token, String username, String rol) {}
+public record AuthResponseDTO(
+        String token,
+        String username,
+        String rol,
+        String avatarUrl // <--- NUEVO CAMPO
+) {}

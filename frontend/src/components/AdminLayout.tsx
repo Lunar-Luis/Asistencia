@@ -1,14 +1,25 @@
-import { type ReactNode, useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { type ReactNode, useState, useEffect, useRef, useCallback } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LayoutDashboard, Users, Briefcase, Clock,
   Calendar, FileBarChart, LogOut, Sun, Moon, Settings, UserCircle,
   Menu, Camera, Cpu
-} from 'lucide-react'; // ---> Añadí el icono 'Cpu' para Terminales
+} from 'lucide-react';
+import Swal from 'sweetalert2';
+import * as api from '../services/api';
+
+// ==============================================================
+// CORRECCIÓN ESLINT: Constantes movidas fuera del componente
+// para evitar dependencias innecesarias en el useEffect
+// ==============================================================
+const IDLE_TIMEOUT_MS = 5 * 60 * 1000;     // 5 minutos (Expiración del Backend)
+const WARNING_TIME_MS = 4 * 60 * 1000;     // 4 minutos (Muestra advertencia)
+const REFRESH_INTERVAL_MS = 3 * 60 * 1000; // 3 minutos (Renovación silenciosa)
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
+  const navigate = useNavigate(); 
   const isActive = (path: string) => location.pathname === path;
   
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
@@ -17,10 +28,109 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // ---> NUEVO: Leer datos del usuario logueado
   const rolUsuario = localStorage.getItem('rol') || '';
   const username = localStorage.getItem('username') || 'Usuario';
   const esSuperAdmin = rolUsuario === 'SUPERADMIN';
+  
+  const userAvatar = localStorage.getItem('avatar') || '/images/logo.png';
+
+  const forzarCierreSesion = useCallback(() => {
+    Swal.close();
+    navigate('/salir');
+  }, [navigate]);
+
+  useEffect(() => {
+    let warningShown = false;
+
+    const updateActivity = () => {
+      localStorage.setItem('lastActivity', Date.now().toString());
+    };
+
+    // 1. Verificar inactividad al cargar la página
+    const lastActivityStr = localStorage.getItem('lastActivity');
+    if (lastActivityStr) {
+      const diff = Date.now() - parseInt(lastActivityStr, 10);
+      if (diff >= IDLE_TIMEOUT_MS) {
+        forzarCierreSesion();
+        return;
+      }
+    } else {
+      updateActivity();
+    }
+
+    // 2. Escuchar actividad
+    const events = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'];
+    events.forEach(e => window.addEventListener(e, updateActivity, { passive: true }));
+
+    // 3. Vigilar el tiempo restante para alertar o expulsar
+    // CORRECCIÓN TS/ESLINT: Usamos window.setInterval y declaramos la const de una vez
+    const activityInterval = window.setInterval(() => {
+      const last = parseInt(localStorage.getItem('lastActivity') || '0', 10);
+      const diff = Date.now() - last;
+
+      if (diff >= IDLE_TIMEOUT_MS) {
+        clearInterval(activityInterval);
+        forzarCierreSesion();
+      } else if (diff >= WARNING_TIME_MS && !warningShown) {
+        warningShown = true;
+        const timeLeft = IDLE_TIMEOUT_MS - diff;
+        const isDarkMode = document.documentElement.classList.contains('dark');
+
+        Swal.fire({
+          title: '¿Sigues ahí?',
+          text: 'Tu sesión expirará en 1 minuto por inactividad.',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#7380ec',
+          cancelButtonColor: '#ff7782',
+          confirmButtonText: 'Sí, seguir conectado',
+          cancelButtonText: 'Cerrar sesión',
+          timer: timeLeft,
+          timerProgressBar: true,
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          background: isDarkMode ? '#0f172a' : '#fff',
+          color: isDarkMode ? '#f8fafc' : '#334155',
+          customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' }
+        }).then(async (result) => {
+          warningShown = false;
+          if (result.isConfirmed) {
+            updateActivity();
+            try {
+              const data = await api.refreshTokenAPI();
+              localStorage.setItem('token', data.token); 
+            } catch {
+              // CORRECCIÓN ESLINT: variable de error removida porque no se usa
+              forzarCierreSesion(); 
+            }
+          } else if (result.dismiss === Swal.DismissReason.cancel || result.dismiss === Swal.DismissReason.timer) {
+            forzarCierreSesion();
+          }
+        });
+      }
+    }, 1000);
+
+    // 4. Renovación silenciosa si el usuario está trabajando
+    const refreshInterval = window.setInterval(async () => {
+       const last = parseInt(localStorage.getItem('lastActivity') || '0', 10);
+       const diff = Date.now() - last;
+       
+       if (diff < REFRESH_INTERVAL_MS) {
+           try {
+              const data = await api.refreshTokenAPI();
+              localStorage.setItem('token', data.token);
+           } catch {
+              forzarCierreSesion();
+           }
+       }
+    }, REFRESH_INTERVAL_MS);
+
+    return () => {
+      events.forEach(e => window.removeEventListener(e, updateActivity));
+      clearInterval(activityInterval);
+      clearInterval(refreshInterval);
+    };
+  }, [forzarCierreSesion]);
 
   useEffect(() => {
     if (isDark) document.documentElement.classList.add('dark');
@@ -49,7 +159,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     else setIsMobileMenuOpen(!isMobileOpen); 
   };
 
-  // ---> NUEVO: Menú dinámico. Terminales solo existe si esSuperAdmin es true.
   const menu = [
     { path: '/', icon: <LayoutDashboard size={24} />, text: 'Inicio' },
     { path: '/asistencias', icon: <Clock size={24} />, text: 'Asistencias' },
@@ -60,6 +169,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { path: '/camara', icon: <Camera size={24} />, text: 'Monitoreo' }, 
     ...(esSuperAdmin ? [{ path: '/terminales', icon: <Cpu size={24} />, text: 'Terminales' }] : []),
   ];
+
+  const getLinkStyle = (path: string) => `
+    group flex items-center relative h-14 font-semibold transition-colors w-full cursor-pointer
+    ${isDesktopCollapsed ? 'justify-center' : 'px-8'} 
+    ${isActive(path) 
+      ? 'text-primary dark:text-sky-100 bg-primary/5 dark:bg-slate-800' 
+      : 'text-slate-500 hover:text-primary dark:hover:text-sky-100 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+    }
+  `;
 
   return (
     <div className="flex w-full h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans text-slate-800 dark:text-slate-200">
@@ -80,13 +198,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               <span className="text-[15px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wide">{username}</span>
             </button>
             <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0 border border-slate-100 dark:border-slate-800">
-              <img src="/images/logo.png" alt="Logo" className="w-6 h-6 object-contain" />
+              <img src={userAvatar} alt="User Avatar" className="w-full h-full object-cover" />
             </div>
           </div>
 
           <AnimatePresence>
             {isProfileDropdownOpen && (
-              <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }} transition={{ duration: 0.2 }}
+              <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }} transition={{ duration: 0.15 }}
                 className="absolute right-0 top-12 w-52 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50 flex flex-col"
               >
                 <Link to="/perfil" onClick={handleNavigation} className={`flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${isActive('/perfil') ? 'text-primary' : 'text-slate-600 dark:text-slate-300'}`}>
@@ -104,19 +222,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      {/* OVERLAY MÓVIL */}
       <AnimatePresence>
         {isMobileOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsMobileMenuOpen(false)} className="md:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40" />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} onClick={() => setIsMobileMenuOpen(false)} className="md:hidden fixed inset-0 bg-slate-900/60 z-40" />
         )}
       </AnimatePresence>
 
-      {/* SIDEBAR */}
       <motion.aside
         initial={false}
         animate={{ width: isDesktopCollapsed ? "6rem" : "17rem", x: typeof window !== 'undefined' && window.innerWidth < 768 ? (isMobileOpen ? 0 : "-100%") : 0 }}
-        transition={{ duration: 0.3, ease: "easeInOut" }}
-        className="fixed md:relative top-0 left-0 h-full flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 z-50 shrink-0 transition-colors"
+        transition={{ type: "tween", duration: 0.15, ease: "easeOut" }}
+        className="fixed md:relative top-0 left-0 h-full flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 z-50 shrink-0 transition-colors shadow-xl md:shadow-none"
       >
         <div onClick={handleLogoClick} className={`w-full flex shrink-0 border-b border-slate-100 dark:border-slate-800 items-center justify-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${isDesktopCollapsed ? 'h-24' : 'h-28'} md:flex hidden`}>
           <div className={`rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0 border border-slate-100 dark:border-slate-800 ${isDesktopCollapsed ? 'w-12 h-12' : 'w-20 h-20'}`}>
@@ -124,16 +240,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <div className="md:hidden h-16 shrink-0 border-b border-slate-100 dark:border-slate-800"></div>
+        <div className="md:hidden h-16 shrink-0 border-b border-slate-100 dark:border-slate-800 flex items-center px-6">
+           <span className="font-black text-xl text-slate-800 dark:text-white uppercase italic tracking-tighter">Menú</span>
+        </div>
 
-        <div className="flex flex-col py-6 w-full grow overflow-y-auto overflow-x-hidden gap-2">
+        <div className="flex flex-col py-6 w-full grow overflow-y-auto overflow-x-hidden gap-1">
           {menu.map(item => (
-            <Link key={item.path} to={item.path} onClick={handleNavigation}
-              className={`group flex items-center h-14 relative font-semibold transition-colors w-full ${isDesktopCollapsed ? 'justify-center' : 'px-8'} 
-                ${isActive(item.path) 
-                  ? 'text-primary dark:text-sky-100 bg-primary/5 dark:bg-slate-800' 
-                  : 'text-slate-500 hover:text-primary dark:hover:text-sky-100 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
-            >
+            <Link key={item.path} to={item.path} onClick={handleNavigation} className={getLinkStyle(item.path)}>
               {isActive(item.path) && <div className="absolute left-0 top-2 bottom-2 w-1.5 bg-primary rounded-r-md" />}
               <div className={`flex items-center justify-center shrink-0 ${isDesktopCollapsed ? 'group-hover:scale-110 transition-transform' : ''}`}>
                 {item.icon}
@@ -143,42 +256,35 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           ))}
         </div>
 
-        <div className={`p-4 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-2 shrink-0 ${isDesktopCollapsed ? 'items-center pb-6' : ''}`}>
-          <div className="hidden md:flex flex-col gap-2 w-full">
-            <Link to="/configuracion" onClick={handleNavigation}
-              className={`group flex items-center relative h-12 rounded-xl transition-colors font-semibold 
-                ${isDesktopCollapsed ? 'justify-center w-12 mx-auto' : 'px-4 w-full'}
-                ${isActive('/configuracion') 
-                  ? 'text-primary dark:text-sky-100 bg-primary/5 dark:bg-slate-800' 
-                  : 'text-slate-500 hover:text-primary dark:hover:text-sky-100 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
-            >
-               {isActive('/configuracion') && <div className="absolute left-0 top-1 bottom-1 w-1 bg-primary rounded-r-md" />}
-               <Settings size={22} className={`shrink-0 ${isDesktopCollapsed ? 'group-hover:scale-110 transition-transform' : ''}`} />
-               {!isDesktopCollapsed && <span className="text-[15px] font-semibold ml-4 whitespace-nowrap">Ajustes</span>}
-            </Link>
+        <div className="hidden md:flex border-t border-slate-100 dark:border-slate-800 flex-col shrink-0 py-2">
+          <Link to="/configuracion" onClick={handleNavigation} className={getLinkStyle('/configuracion')}>
+             {isActive('/configuracion') && <div className="absolute left-0 top-2 bottom-2 w-1.5 bg-primary rounded-r-md" />}
+             <div className={`flex items-center justify-center shrink-0 ${isDesktopCollapsed ? 'group-hover:scale-110 transition-transform' : ''}`}>
+               <Settings size={24} />
+             </div>
+             {!isDesktopCollapsed && <span className="text-[15px] ml-5 whitespace-nowrap tracking-wide">Ajustes</span>}
+          </Link>
 
-            <div className={`flex items-center w-full ${isDesktopCollapsed ? 'flex-col gap-4 py-2' : 'justify-between px-2 h-12'}`}>
-               <Link to="/perfil" onClick={handleNavigation}
-                  className={`group flex items-center relative transition-colors font-semibold 
-                    ${isDesktopCollapsed ? 'p-2.5 rounded-xl' : 'px-2 py-2 rounded-lg'}
-                    ${isActive('/perfil') 
-                      ? 'text-primary dark:text-sky-100 bg-primary/5 dark:bg-slate-800' 
-                      : 'text-slate-500 hover:text-primary dark:hover:text-sky-100 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
-                >
-                 {isActive('/perfil') && <div className="absolute left-0 top-1 bottom-1 w-1 bg-primary rounded-r-md" />}
-                 <UserCircle size={24} className={`shrink-0 ${isDesktopCollapsed ? 'group-hover:scale-110 transition-transform' : ''}`} />
-                 {!isDesktopCollapsed && <span className="text-[15px] font-bold whitespace-nowrap ml-3">{username}</span>}
-               </Link>
+          <Link to="/perfil" onClick={handleNavigation} className={getLinkStyle('/perfil')}>
+             {isActive('/perfil') && <div className="absolute left-0 top-2 bottom-2 w-1.5 bg-primary rounded-r-md" />}
+             <div className={`flex items-center justify-center shrink-0 ${isDesktopCollapsed ? 'group-hover:scale-110 transition-transform' : ''}`}>
+               <UserCircle size={24} />
+             </div>
+             {!isDesktopCollapsed && <span className="text-[15px] font-bold ml-5 whitespace-nowrap tracking-wide">{username}</span>}
+          </Link>
 
-               <button onClick={() => setIsDark(!isDark)} className="p-2.5 rounded-xl text-slate-400 hover:text-primary transition-colors bg-slate-50 dark:bg-slate-800 border border-transparent">
-                 {isDark ? <Sun size={20} className="text-amber-500" /> : <Moon size={20} />}
-               </button>
-            </div>
-          </div>
+          <button onClick={() => setIsDark(!isDark)} className={`group flex items-center relative h-14 font-semibold transition-colors w-full cursor-pointer ${isDesktopCollapsed ? 'justify-center' : 'px-8'} text-slate-500 hover:text-primary dark:hover:text-sky-100 hover:bg-slate-50 dark:hover:bg-slate-800/50`}>
+             <div className={`flex items-center justify-center shrink-0 ${isDesktopCollapsed ? 'group-hover:scale-110 transition-transform' : ''}`}>
+               {isDark ? <Sun size={24} className="text-amber-500" /> : <Moon size={24} />}
+             </div>
+             {!isDesktopCollapsed && <span className="text-[15px] ml-5 whitespace-nowrap tracking-wide">{isDark ? 'Modo Claro' : 'Modo Oscuro'}</span>}
+          </button>
 
-          <Link to="/salir" onClick={handleNavigation} className={`flex items-center mt-2 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors group ${isDesktopCollapsed ? 'h-12 w-12 mx-auto justify-center' : 'h-14 px-4'}`}>
-             <LogOut size={22} className="shrink-0 group-hover:scale-110 transition-transform" />
-             {!isDesktopCollapsed && <span className="text-[15px] font-bold ml-4 whitespace-nowrap">Cerrar Sesión</span>}
+          <Link to="/salir" onClick={handleNavigation} className={`group flex items-center relative h-14 font-semibold transition-colors w-full ${isDesktopCollapsed ? 'justify-center' : 'px-8'} text-red-500 hover:bg-red-50 dark:hover:bg-danger/10`}>
+             <div className={`flex items-center justify-center shrink-0 ${isDesktopCollapsed ? 'group-hover:scale-110 transition-transform' : ''}`}>
+               <LogOut size={24} />
+             </div>
+             {!isDesktopCollapsed && <span className="text-[15px] font-bold ml-5 whitespace-nowrap tracking-wide">Cerrar Sesión</span>}
           </Link>
         </div>
       </motion.aside>

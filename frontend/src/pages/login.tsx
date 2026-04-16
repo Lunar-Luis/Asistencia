@@ -2,9 +2,8 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { User, Lock, Eye, EyeOff, Mail, AlertCircle, CheckCircle2, ArrowRight, Loader2, ArrowLeft } from 'lucide-react';
-import { loginAPI } from '../services/api'; // <--- IMPORTACIÓN DE LA API
+import { loginAPI } from '../services/api';
 
-// --- COMPONENTE SKELETON PARA EL LOGIN ---
 const LoginSkeleton = () => (
   <div className="w-full max-w-[400px] p-6 relative z-10 animate-pulse">
     <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
@@ -49,7 +48,6 @@ export default function Login() {
     setTimeout(() => setToast(null), 4000);
   };
 
-  // --- NUEVA LÓGICA DE LOGIN CONECTADA A SPRING BOOT ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -61,22 +59,25 @@ export default function Login() {
     setIsAuthenticating(true);
     
     try {
-      // 1. Llamamos a nuestra API
       const data = await loginAPI(email, password);
 
-      // 2. Si es exitoso, guardamos el Token JWT y los datos reales
       localStorage.setItem('token', data.token);
       localStorage.setItem('username', data.username);
       localStorage.setItem('rol', data.rol);
+      localStorage.setItem('lastActivity', Date.now().toString()); // <--- AÑADIDO: Iniciar el reloj de inactividad
 
-      // 3. Mostramos éxito y redirigimos
+      if (data.avatarUrl) {
+        localStorage.setItem('avatar', data.avatarUrl);
+      } else {
+        localStorage.removeItem('avatar');
+      }
+
       showToast('¡Bienvenido!', 'success');
       navigate('/');
       
     } catch {
-      // Si el backend nos rechaza (contraseña incorrecta, usuario no existe)
       showToast('Usuario o contraseña incorrectos.', 'error');
-      setIsAuthenticating(false); // Detenemos el spinner del botón
+      setIsAuthenticating(false); 
     }
   };
 
@@ -90,7 +91,6 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-800 font-sans selection:bg-blue-200 relative overflow-hidden">
       
-      {/* Notificaciones */}
       <div className="fixed top-4 w-full flex justify-center z-[100] pointer-events-none">
         <AnimatePresence>
           {toast && (

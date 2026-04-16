@@ -63,7 +63,6 @@ export default function Inicio() {
   const [actividadReciente, setActividadReciente] = useState<Asistencia[]>([]);
   const [hoveredBar, setHoveredBar] = useState<number | null>(null);
 
-  // ---> CAMBIO CLAVE AQUÍ: Usar fecha local en lugar de toISOString() <---
   const obtenerFechaLocal = () => {
     const hoy = new Date();
     const year = hoy.getFullYear();
@@ -85,8 +84,9 @@ export default function Inicio() {
         
         setDashboardStats(resumenData);
         
+        // FILTRADO CAMBIADO: Excluimos a los ausentes de la "Actividad Reciente"
         const actividadHoy = asistenciasData
-            .filter((a: Asistencia) => a.fechaRegistro === hoyStr)
+            .filter((a: Asistencia) => a.fechaRegistro === hoyStr && a.estadoEntrada !== 'AUSENTE')
             .sort((a: Asistencia, b: Asistencia) => new Date(b.marcaEntrada).getTime() - new Date(a.marcaEntrada).getTime())
             .slice(0, 4);
             
@@ -187,8 +187,14 @@ export default function Inicio() {
                       {esSalida ? formatTime(asistencia.marcaSalida!) : formatTime(asistencia.marcaEntrada)}
                     </p>
                   </div>
+                  {/* CAMBIO AQUÍ: Se cambió "OK" por "A TIEMPO" en el pill */}
                   <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider shrink-0 ${esSalida ? 'bg-amber-50 text-amber-700 dark:bg-warning/10 dark:text-warning' : asistencia.estadoEntrada === 'A_TIEMPO' ? 'bg-emerald-50 text-emerald-600 dark:bg-success/10 dark:text-success' : 'bg-red-50 text-red-500 dark:bg-danger/10 dark:text-danger'}`}>
-                    {esSalida ? 'Salida' : asistencia.estadoEntrada === 'A_TIEMPO' ? <><CheckCircle2 size={14}/> OK</> : <><AlertCircle size={14}/> Tarde</>}
+                    {esSalida 
+                      ? 'Salida' 
+                      : asistencia.estadoEntrada === 'A_TIEMPO' 
+                        ? <><CheckCircle2 size={14}/> A TIEMPO</> 
+                        : <><AlertCircle size={14}/> Tarde</>
+                    }
                   </span>
                 </div>
               );
@@ -232,6 +238,8 @@ export default function Inicio() {
 
                   {chartData.map((data, i) => {
                     const divisor = maxEmpleados === 0 ? 1 : maxEmpleados;
+                    // LÓGICA CORREGIDA PARA LAS BARRAS
+                    // Ahora cada barra calcula su altura independientemente basada en el total de empleados.
                     const h1 = (data.aTiempo / divisor) * 100;
                     const h2 = (data.tarde / divisor) * 100;
                     const h3 = (data.ausentes / divisor) * 100;
@@ -251,7 +259,8 @@ export default function Inicio() {
                             >
                               <span className="text-[9px] text-slate-400 mb-1">{data.dia}</span>
                               <div className="flex gap-3">
-                                <div className="flex flex-col items-center"><span className="text-emerald-400 text-lg leading-none">{data.aTiempo}</span><span>OK</span></div>
+                                {/* CAMBIO AQUÍ: Se cambió "OK" por "A Tiempo" en el tooltip */}
+                                <div className="flex flex-col items-center"><span className="text-emerald-400 text-lg leading-none">{data.aTiempo}</span><span>A Tiempo</span></div>
                                 <div className="flex flex-col items-center"><span className="text-amber-400 text-lg leading-none">{data.tarde}</span><span>Tardes</span></div>
                                 <div className="flex flex-col items-center"><span className="text-red-400 text-lg leading-none">{data.ausentes}</span><span>Faltas</span></div>
                               </div>
@@ -261,6 +270,7 @@ export default function Inicio() {
                         </AnimatePresence>
 
                         <div className="w-full h-full flex items-end justify-center gap-[2px] sm:gap-1">
+                          {/* LÓGICA CORREGIDA PARA LAS BARRAS (Ahora se muestran una al lado de la otra y con su altura correcta) */}
                           <motion.div initial={{ height: 0 }} animate={{ height: `${h1}%` }} transition={{ type: "spring", bounce: 0.3, delay: i * 0.05 }}
                             className="w-1/3 bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-t-sm sm:rounded-t-md hover:brightness-110 min-h-[4px]" />
                           <motion.div initial={{ height: 0 }} animate={{ height: `${h2}%` }} transition={{ type: "spring", bounce: 0.3, delay: 0.1 + (i * 0.05) }}

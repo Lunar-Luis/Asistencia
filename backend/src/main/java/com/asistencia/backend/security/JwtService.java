@@ -56,4 +56,8 @@ public class JwtService {
                 .getPayload();
         return claimsResolver.apply(claims);
     }
+    public String refreshToken(String token, UserDetails userDetails) {
+        // Genera un nuevo token con otros 5 minutos de vida para el mismo usuario
+        return generarToken(userDetails);
+    }
 }

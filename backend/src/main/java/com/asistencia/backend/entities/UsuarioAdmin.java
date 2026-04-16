@@ -32,4 +32,7 @@ public class UsuarioAdmin {
 
     @Column(name = "ultimo_acceso")
     private LocalDateTime ultimoAcceso;
+
+    @Column(name = "avatar_url", columnDefinition = "TEXT")
+    private String avatarUrl;
 }

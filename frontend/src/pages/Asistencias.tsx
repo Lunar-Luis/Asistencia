@@ -196,7 +196,7 @@ export default function Asistencias() {
       const matchEmpleado =
         empleadoFiltro === "all"
           ? true
-          : item.empleado.id.toString() === empleadoFiltro;
+          : item.empleado.id?.toString() === empleadoFiltro;
 
       // Filtro 3: Estado
       let matchEstado = true;
@@ -428,17 +428,15 @@ export default function Asistencias() {
                               </p>
                             </td>
                             <td className="p-4">
-                              <span className="text-xs font-bold text-slate-600 dark:text-white/60 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-md">
-                                {formatearHora(item.marcaEntrada)}
+                              <span className={`text-xs font-bold px-3 py-1.5 rounded-md ${item.estadoEntrada !== "AUSENTE" ? "text-slate-600 dark:text-white/60 bg-slate-50 dark:bg-slate-800" : "text-slate-400 bg-transparent"}`}>
+                                {item.estadoEntrada === "AUSENTE" ? "---" : formatearHora(item.marcaEntrada)}
                               </span>
                             </td>
                             <td className="p-4">
                               <span
-                                className={`text-xs font-bold px-3 py-1.5 rounded-md ${item.marcaSalida ? "text-slate-600 dark:text-white/60 bg-slate-50 dark:bg-slate-800" : "text-slate-400 bg-transparent"}`}
+                                className={`text-xs font-bold px-3 py-1.5 rounded-md ${item.marcaSalida && item.estadoEntrada !== "AUSENTE" ? "text-slate-600 dark:text-white/60 bg-slate-50 dark:bg-slate-800" : "text-slate-400 bg-transparent"}`}
                               >
-                                {item.marcaSalida
-                                  ? formatearHora(item.marcaSalida)
-                                  : "---"}
+                                {item.estadoEntrada === "AUSENTE" ? "---" : (item.marcaSalida ? formatearHora(item.marcaSalida) : "---")}
                               </span>
                             </td>
                             <td className="p-4 text-center">

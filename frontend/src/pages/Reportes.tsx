@@ -289,9 +289,10 @@ export default function Reportes() {
       Empleado: `${row.empleado.nombre} ${row.empleado.apellido}`,
       "Cargo/Depto": row.empleado.cargo?.nombre || "Sin Cargo",
       Fecha: row.fechaRegistro,
-      Entrada: formatearHora(row.marcaEntrada),
-      Salida: row.marcaSalida ? formatearHora(row.marcaSalida) : "---",
-      Total: formatearMinutosAHoras(row.horasTrabajadas),
+      // CAMBIO AQUÍ: Ocultar datos si es AUSENTE
+      Entrada: row.estadoEntrada === "AUSENTE" ? "---" : formatearHora(row.marcaEntrada),
+      Salida: row.estadoEntrada === "AUSENTE" ? "---" : (row.marcaSalida ? formatearHora(row.marcaSalida) : "---"),
+      Total: row.estadoEntrada === "AUSENTE" ? "---" : formatearMinutosAHoras(row.horasTrabajadas),
       Estado: formatearEstado(row.estadoEntrada),
     }));
   };
@@ -333,7 +334,7 @@ export default function Reportes() {
 
       // --- AGREGAR LOGO ---
       try {
-        const logoBase64 = await cargarImagenBase64("/images/logo.png");
+        const logoBase64 = await cargarImagenBase64("/imagenes/logo.png"); // <--- MANTUVE EL CAMBIO DE "imagenes"
         // Posición: X:170 (Alineado a la derecha, pero con margen), Y:8
         doc.addImage(logoBase64, "PNG", 170, 8, 24, 24);
       } catch (error) {
@@ -376,8 +377,8 @@ export default function Reportes() {
         },
         columnStyles: {
           0: { fontStyle: "bold", cellWidth: 45 }, // Empleado
-          5: { halign: "center", fontStyle: "bold" },
-          6: { halign: "right" },
+          5: { halign: "center", fontStyle: "bold" }, // Total Horas
+          6: { halign: "right" }, // Estado
         },
         // --- 4. PIE DE PÁGINA ---
         didDrawPage: (dataArg) => {
@@ -826,25 +827,26 @@ export default function Reportes() {
                                   {row.fechaRegistro}
                                 </p>
                               </td>
+                              {/* CAMBIO AQUÍ: Ocultar Entrada si es AUSENTE */}
                               <td className="p-4">
-                                <span className="text-[12px] font-bold text-slate-600 dark:text-white/60 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-md">
-                                  {formatearHora(row.marcaEntrada)}
+                                <span className={`text-[12px] font-bold px-3 py-1.5 rounded-md ${row.estadoEntrada !== "AUSENTE" ? "text-slate-600 dark:text-white/60 bg-slate-50 dark:bg-slate-800" : "text-slate-400 bg-transparent"}`}>
+                                  {row.estadoEntrada === "AUSENTE" ? "---" : formatearHora(row.marcaEntrada)}
                                 </span>
                               </td>
+                              {/* CAMBIO AQUÍ: Ocultar Salida si es AUSENTE */}
                               <td className="p-4">
                                 <span
-                                  className={`text-[12px] font-bold px-3 py-1.5 rounded-md ${row.marcaSalida ? "text-slate-600 dark:text-white/60 bg-slate-50 dark:bg-slate-800" : "text-slate-400 bg-transparent"}`}
+                                  className={`text-[12px] font-bold px-3 py-1.5 rounded-md ${row.marcaSalida && row.estadoEntrada !== "AUSENTE" ? "text-slate-600 dark:text-white/60 bg-slate-50 dark:bg-slate-800" : "text-slate-400 bg-transparent"}`}
                                 >
-                                  {row.marcaSalida
-                                    ? formatearHora(row.marcaSalida)
-                                    : "---"}
+                                  {row.estadoEntrada === "AUSENTE" ? "---" : (row.marcaSalida ? formatearHora(row.marcaSalida) : "---")}
                                 </span>
                               </td>
+                              {/* CAMBIO AQUÍ: Ocultar Total si es AUSENTE */}
                               <td className="p-4 text-center">
                                 <span
-                                  className={`text-[13px] font-black ${row.horasTrabajadas ? "text-primary" : "text-slate-400"}`}
+                                  className={`text-[13px] font-black ${row.horasTrabajadas && row.estadoEntrada !== "AUSENTE" ? "text-primary" : "text-slate-400"}`}
                                 >
-                                  {formatearMinutosAHoras(row.horasTrabajadas)}
+                                  {row.estadoEntrada === "AUSENTE" ? "---" : formatearMinutosAHoras(row.horasTrabajadas)}
                                 </span>
                               </td>
                               <td className="p-4 text-right">

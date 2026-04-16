@@ -17,32 +17,27 @@ import Settings from './pages/Settings';
 import MonitoreoCamara from './pages/MonitoreoCamara';
 import Terminales from './pages/Terminales';
 
-// ==========================================
-// Protected Route (VALIDA TOKEN)
-// ==========================================
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const isAuthenticated = !!localStorage.getItem('token');
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   return <>{children}</>;
 };
 
-// ==========================================
-// NUEVO: AdminRoute (VALIDA QUE SEA SUPER_ADMIN)
-// ==========================================
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const rol = localStorage.getItem('rol');
-  // Si no es admin, lo mandamos al inicio (no le mostramos pantalla de error, solo lo redirigimos silenciosamente)
   if (rol !== 'SUPERADMIN') return <Navigate to="/" replace />;
   return <>{children}</>;
 };
 
 // ==========================================
-// Componente Logout (LIMPIA TODOS LOS DATOS REALES)
+// Componente Logout (LIMPIA TODOS LOS DATOS Y RELOJ)
 // ==========================================
 const Logout = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('username');
   localStorage.removeItem('rol');
+  localStorage.removeItem('avatar');
+  localStorage.removeItem('lastActivity'); // <--- AÑADIDO: Resetear el reloj
   return <Navigate to="/login" replace />;
 };
 
@@ -54,14 +49,12 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/salir" element={<Logout />} />
 
-        {/* Todas las rutas dentro de path="/*" están protegidas */}
         <Route 
           path="/*" 
           element={
             <ProtectedRoute>
               <AdminLayout>
                 <Routes>
-                  {/* Rutas compartidas (Todos las ven) */}
                   <Route path="/" element={<Inicio />} />
                   <Route path="/asistencias" element={<Asistencias />} />
                   <Route path="/empleados" element={<Empleados />} />
@@ -72,7 +65,6 @@ export default function App() {
                   <Route path="/configuracion" element={<Settings />} />
                   <Route path="/camara" element={<MonitoreoCamara />} /> 
 
-                  {/* ---> RUTAS ESTRICTAMENTE PARA ADMINISTRADORES <--- */}
                   <Route path="/terminales" element={<AdminRoute><Terminales /></AdminRoute>} /> 
 
                   <Route path="*" element={<Navigate to="/" replace />} />

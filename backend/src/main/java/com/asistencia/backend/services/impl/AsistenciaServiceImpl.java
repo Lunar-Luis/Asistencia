@@ -110,8 +110,17 @@ public class AsistenciaServiceImpl implements AsistenciaService {
         long totalEmpleados = empleadoRepository.countByActivoTrue();
 
         List<Asistencia> asistenciasHoy = asistenciaRepository.findAllByFechaRegistro(hoy);
-        long presentesHoy = asistenciasHoy.size();
+
+        // ---> NUEVA LÓGICA DE CONTEO PARA HOY <---
+        long aTiempoHoy = asistenciasHoy.stream().filter(a -> a.getEstadoEntrada() == EstadoAsistencia.A_TIEMPO).count();
         long tardeHoy = asistenciasHoy.stream().filter(a -> a.getEstadoEntrada() == EstadoAsistencia.TARDE).count();
+
+        // Presentes reales: Solo los que llegaron a tiempo o tarde
+        long presentesHoy = aTiempoHoy + tardeHoy;
+
+        // Ausentes: El total de empleados menos los que realmente vinieron.
+        // Esto funciona perfecto a las 3:00 PM (cuando aún no corre el cron)
+        // y a las 11:59 PM (cuando el cron ya insertó las filas de 'AUSENTE').
         long ausentesHoy = Math.max(0, totalEmpleados - presentesHoy);
 
         java.util.List<com.asistencia.backend.dtos.ChartDataDTO> chartData = new java.util.ArrayList<>();
@@ -120,9 +129,12 @@ public class AsistenciaServiceImpl implements AsistenciaService {
             LocalDate fechaIteracion = hoy.minusDays(i);
             List<Asistencia> asisDia = asistenciaRepository.findAllByFechaRegistro(fechaIteracion);
 
+            // ---> NUEVA LÓGICA DE CONTEO PARA LA GRÁFICA <---
             long aTiempoDia = asisDia.stream().filter(a -> a.getEstadoEntrada() == EstadoAsistencia.A_TIEMPO).count();
             long tardeDia = asisDia.stream().filter(a -> a.getEstadoEntrada() == EstadoAsistencia.TARDE).count();
-            long ausentesDia = Math.max(0, totalEmpleados - asisDia.size());
+
+            long presentesDia = aTiempoDia + tardeDia;
+            long ausentesDia = Math.max(0, totalEmpleados - presentesDia);
 
             String nombreDia = java.time.format.DateTimeFormatter.ofPattern("EEEE", new java.util.Locale("es", "ES")).format(fechaIteracion);
             nombreDia = nombreDia.substring(0, 1).toUpperCase() + nombreDia.substring(1);

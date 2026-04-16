@@ -1,5 +1,3 @@
-// src/services/api.ts
-
 const API_URL = 'http://localhost:8080/api';
 
 /**
@@ -8,12 +6,6 @@ const API_URL = 'http://localhost:8080/api';
  * ==========================================
  */
 
-/**
- * Autentica al usuario contra el backend y devuelve el JWT.
- * @param username El nombre de usuario (ej. 'admin')
- * @param password La contraseña en texto plano
- * @returns Objeto con el token JWT, username y rol.
- */
 export const loginAPI = async (username: string, password: string) => {
   const response = await fetch(`${API_URL}/auth/login`, {
     method: 'POST',
@@ -24,12 +16,22 @@ export const loginAPI = async (username: string, password: string) => {
   return response.json();
 };
 
-/**
- * Función interna para realizar peticiones HTTP adjuntando el Token JWT.
- * Si el token expira, intercepta el error 401/403 y expulsa al usuario al Login.
- * @param endpoint Ruta del backend (ej. '/cargos')
- * @param options Opciones nativas de fetch (method, body, headers, etc.)
- */
+export const refreshTokenAPI = async () => {
+  const token = localStorage.getItem('token');
+  if (!token) throw new Error("No hay token");
+
+  const response = await fetch(`${API_URL}/auth/refresh`, {
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) throw new Error('Token caducado o inválido');
+  return response.json(); 
+};
+
 const fetchAuth = async (endpoint: string, options: RequestInit = {}) => {
   const token = localStorage.getItem('token');
   
@@ -44,27 +46,23 @@ const fetchAuth = async (endpoint: string, options: RequestInit = {}) => {
     headers,
   });
 
-  // Si la respuesta no es OK
   if (!response.ok) {
-    // Solo expulsamos si es 401 (No Autorizado) o si es 403 Y el endpoint NO es de creación/edición de datos
-    // Esto previene que un error de validación en /empleados te saque del sistema.
     if (response.status === 401 || (response.status === 403 && !endpoint.includes('/empleados'))) {
       localStorage.removeItem('token');
       window.location.href = '/login'; 
       throw new Error('Sesión expirada o acceso denegado');
     }
     
-    // Intentamos extraer el mensaje de error real del backend
    let errorMessage = 'Error en la petición al servidor';
     try {
         const errorData = await response.json();
         errorMessage = errorData.message || errorData.error || errorMessage;
     } catch {
-        // Si no es JSON, intentamos texto
         try {
            errorMessage = await response.text() || errorMessage;
-        } catch {
-           // Ignoramos el error de parseo para conservar el mensaje por defecto
+        } catch (err) {
+           // CORRECCIÓN ESLINT: Se usa console.debug para no dejar el bloque vacío
+           console.debug("No se pudo extraer el texto del error", err);
         }
     }
     throw new Error(errorMessage);
@@ -111,12 +109,10 @@ export interface Empleado {
   fotoUrl?: string;
   activo?: boolean;
   fechaIngreso?: string;
-  // Relaciones devueltas por Spring Boot
   cargo?: Cargo; 
   horario?: Horario; 
 }
 
-// Interfaz para crear/editar (coincide con EmpleadoRequestDTO)
 export interface EmpleadoRequest {
   nombre: string;
   apellido: string;
@@ -126,14 +122,9 @@ export interface EmpleadoRequest {
   nfcUid: string;
   cargoId: number;
   horarioId: number;
-  activo?: boolean; // Para poder reactivarlo desde React
+  activo?: boolean;
 }
 
-/**
- * ==========================================
- * INTERFACES: TERMINALES
- * ==========================================
- */
 export interface Terminal {
   id?: number;
   nombre: string;
@@ -143,11 +134,6 @@ export interface Terminal {
   activo?: boolean;
 }
 
-/**
- * ==========================================
- * INTERFACES: ASISTENCIAS
- * ==========================================
- */
 export interface Asistencia {
   id: number;
   empleado: {
@@ -161,21 +147,15 @@ export interface Asistencia {
   fechaRegistro: string;
   marcaEntrada: string;
   marcaSalida: string | null;
-  estadoEntrada: string; // 'A_TIEMPO', 'TARDE', 'AUSENTE'
+  estadoEntrada: string; 
   horasTrabajadas: number | null;
 }
 
-/**
- * ==========================================
- * INTERFACES: DASHBOARD
- * ==========================================
- */
 export interface DashboardResumen {
   totalEmpleados: number;
   presentesHoy: number;
   tardeHoy: number;
   ausentesHoy: number;
-  // ---> NUEVO: Datos para la gráfica <---
   chartData: {
     dia: string;
     aTiempo: number;
@@ -184,62 +164,51 @@ export interface DashboardResumen {
   }[];
 }
 
-/**
- * ==========================================
- * ENDPOINTS: CARGOS
- * ==========================================
- */
 export const getCargos = () => fetchAuth('/cargos');
 export const crearCargo = (cargo: Cargo) => fetchAuth('/cargos', { method: 'POST', body: JSON.stringify(cargo) });
 export const actualizarCargo = (id: number, cargo: Cargo) => fetchAuth(`/cargos/${id}`, { method: 'PUT', body: JSON.stringify(cargo) });
 export const desactivarCargo = (id: number) => fetchAuth(`/cargos/${id}`, { method: 'DELETE' });
 
-/**
- * ==========================================
- * ENDPOINTS: HORARIOS
- * ==========================================
- */
 export const getHorarios = () => fetchAuth('/horarios');
 export const crearHorario = (horario: Horario) => fetchAuth('/horarios', { method: 'POST', body: JSON.stringify(horario) });
 export const actualizarHorario = (id: number, horario: Horario) => fetchAuth(`/horarios/${id}`, { method: 'PUT', body: JSON.stringify(horario) });
 export const desactivarHorario = (id: number) => fetchAuth(`/horarios/${id}`, { method: 'DELETE' });
 
-/**
- * ==========================================
- * ENDPOINTS: EMPLEADOS Y HARDWARE
- * ==========================================
- */
 export const getEmpleados = () => fetchAuth('/empleados');
 export const crearEmpleado = (empleado: EmpleadoRequest) => fetchAuth('/empleados', { method: 'POST', body: JSON.stringify(empleado) });
 export const actualizarEmpleado = (id: number, empleado: EmpleadoRequest) => fetchAuth(`/empleados/${id}`, { method: 'PUT', body: JSON.stringify(empleado) });
 export const desactivarEmpleado = (id: number) => fetchAuth(`/empleados/${id}`, { method: 'DELETE' });
 
-// ---> NUEVOS ENDPOINTS PARA LEER LA TARJETA DESDE REACT <---
 export const activarModoRegistro = () => fetchAuth('/empleados/hardware/activar-modo-registro', { method: 'POST' });
 export const leerTarjetaHardware = () => fetchAuth('/empleados/hardware/leer-registro');
 
-
-/**
- * ==========================================
- * ENDPOINTS: TERMINALES
- * ==========================================
- */
 export const getTerminales = () => fetchAuth('/terminales');
 export const crearTerminal = (terminal: Terminal) => fetchAuth('/terminales', { method: 'POST', body: JSON.stringify(terminal) });
 export const actualizarTerminal = (id: number, terminal: Terminal) => fetchAuth(`/terminales/${id}`, { method: 'PUT', body: JSON.stringify(terminal) });
 export const desactivarTerminal = (id: number) => fetchAuth(`/terminales/${id}`, { method: 'DELETE' });
 
-/**
- * ==========================================
- * ENDPOINTS: ASISTENCIAS
- * ==========================================
- */
-// Obtiene el historial completo de asistencias desde la base de datos
 export const getAsistencias = () => fetchAuth('/asistencias');
-
-/**
- * ==========================================
- * ENDPOINTS: DASHBOARD
- * ==========================================
- */
 export const getDashboardResumen = () => fetchAuth('/asistencias/dashboard/resumen');
+
+export interface ActualizarPerfilData {
+  username: string;
+  email: string;
+  password?: string;
+  avatarUrl?: string;
+}
+
+export const actualizarPerfil = async (data: ActualizarPerfilData) => {
+  const response = await fetchAuth('/usuarios/perfil', { 
+    method: 'PUT', 
+    body: JSON.stringify(data) 
+  });
+  
+  if (response && response.token) {
+    localStorage.setItem('token', response.token);
+    localStorage.setItem('username', response.username);
+    localStorage.setItem('rol', response.rol);
+    if (response.avatarUrl) localStorage.setItem('avatar', response.avatarUrl);
+  }
+  
+  return response;
+};
