@@ -51,4 +51,23 @@ public class UsuarioAdminController {
             return ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
         }
     }
+
+    // Añade esto debajo de tu @PutMapping("/perfil")
+    @GetMapping("/perfil")
+    public ResponseEntity<?> obtenerMiPerfil(Authentication authentication) {
+        try {
+            // Spring Security nos garantiza que este 'authentication.getName()' es el usuario legítimo del token
+            UsuarioAdmin admin = usuarioService.obtenerUsuario(authentication.getName());
+
+            // Devolvemos un JSON (Mapa) con los datos, OMITIENDO la contraseña por seguridad
+            return ResponseEntity.ok(java.util.Map.of(
+                    "username", admin.getUsername(),
+                    "email", admin.getEmail(),
+                    "rol", admin.getRol().name(),
+                    "avatarUrl", admin.getAvatarUrl() != null ? admin.getAvatarUrl() : ""
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
+        }
+    }
 }

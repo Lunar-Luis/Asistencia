@@ -189,6 +189,7 @@ export const desactivarTerminal = (id: number) => fetchAuth(`/terminales/${id}`,
 
 export const getAsistencias = () => fetchAuth('/asistencias');
 export const getDashboardResumen = () => fetchAuth('/asistencias/dashboard/resumen');
+export const getMiPerfil = () => fetchAuth('/usuarios/perfil');
 
 export interface ActualizarPerfilData {
   username: string;
@@ -208,7 +209,48 @@ export const actualizarPerfil = async (data: ActualizarPerfilData) => {
     localStorage.setItem('username', response.username);
     localStorage.setItem('rol', response.rol);
     if (response.avatarUrl) localStorage.setItem('avatar', response.avatarUrl);
+    localStorage.setItem('email', data.email);
   }
   
   return response;
+};
+
+
+// NUEVO: Petición para solicitar recuperación de contraseña
+export const solicitarRecuperacionPassword = async (email: string) => {
+  const response = await fetch(`${API_URL}/auth/recuperar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  
+  if (!response.ok) {
+      // Intentamos sacar el error del backend
+      try {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Error al solicitar recuperación");
+      } catch {
+          throw new Error("Error de conexión al servidor");
+      }
+  }
+  return response.json(); // Devuelve el { message: "..." }
+};
+
+// NUEVO: Petición para enviar la nueva contraseña con el token
+export const restablecerPasswordAPI = async (token: string, nuevaPassword: string) => {
+  const response = await fetch(`${API_URL}/auth/restablecer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, nuevaPassword }),
+  });
+  
+  if (!response.ok) {
+      try {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Error al restablecer la contraseña");
+      } catch {
+          throw new Error("Error de conexión al servidor");
+      }
+  }
+  return response.json();
 };

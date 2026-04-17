@@ -24,7 +24,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileMenuOpen] = useState(false);
-  const [isDark, setIsDark] = useState(false);
+  const [isDark, setIsDark] = useState(() => {
+    const savedTheme = localStorage.getItem('themePref');
+    if (savedTheme) return savedTheme === 'dark';
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches || false;
+  });
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -133,8 +137,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }, [forzarCierreSesion]);
 
   useEffect(() => {
-    if (isDark) document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('themePref', 'dark'); // Guardamos la preferencia
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('themePref', 'light'); // Guardamos la preferencia
+    }
   }, [isDark]);
 
   useEffect(() => {

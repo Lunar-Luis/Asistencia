@@ -40,26 +40,42 @@ export default function Profile() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  const [username, setUsername] = useState(localStorage.getItem('username') || '');
-  const [email, setEmail] = useState('admin@cmbt.com');
+  // Inicializamos vacíos, ya no dependemos del localStorage para esto
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [profileImg, setProfileImg] = useState<string>('/images/logo.png');
   
-  // Cargamos el avatar guardado o usamos el logo por defecto
-  const [profileImg, setProfileImg] = useState<string>(localStorage.getItem('avatar') || '/images/logo.png');
   const fileInputRef = useRef<HTMLInputElement>(null);
-
+  
   const rolUsuario = localStorage.getItem('rol') || 'RRHH';
   const esSuperAdmin = rolUsuario === 'SUPERADMIN';
 
+  // =======================================================
+  // NUEVO: CARGAMOS LOS DATOS DESDE LA BASE DE DATOS (API)
+  // =======================================================
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 600);
-    return () => clearTimeout(timer);
+    const fetchPerfilDatos = async () => {
+      try {
+        const datosReales = await api.getMiPerfil();
+        setUsername(datosReales.username || '');
+        setEmail(datosReales.email || '');
+        if (datosReales.avatarUrl) {
+          setProfileImg(datosReales.avatarUrl);
+        }
+      } catch (error) {
+        console.error("Error obteniendo perfil desde el backend", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPerfilDatos();
   }, []);
 
   const handleImageClick = () => fileInputRef.current?.click();
 
-  // ---> FUNCIÓN DE OPTIMIZACIÓN: Comprime la imagen antes de subirla <---
   const comprimirImagen = (file: File): Promise<string> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -69,7 +85,7 @@ export default function Profile() {
         img.src = event.target?.result as string;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 300; // Resolución máxima ideal para avatares
+          const MAX_WIDTH = 300; 
           const MAX_HEIGHT = 300;
           let width = img.width;
           let height = img.height;
@@ -85,7 +101,6 @@ export default function Profile() {
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
           
-          // Comprime a JPEG con 70% de calidad para no saturar la BD
           resolve(canvas.toDataURL('image/jpeg', 0.7));
         };
       };
@@ -97,7 +112,7 @@ export default function Profile() {
     if (file) {
       try {
         const imagenOptimizadaBase64 = await comprimirImagen(file);
-        setProfileImg(imagenOptimizadaBase64); // Se actualiza la vista previa
+        setProfileImg(imagenOptimizadaBase64); 
       } catch (error) {
         console.error("Error optimizando imagen", error);
       }
@@ -135,7 +150,7 @@ export default function Profile() {
           const requestData = { 
             username, 
             email, 
-            avatarUrl: profileImg, // Enviamos el Base64 optimizado
+            avatarUrl: profileImg,
             ...(password ? { password } : {}) 
           };
           
@@ -165,11 +180,11 @@ export default function Profile() {
     });
   };
 
-  const handleDiscard = () => {
+  const handleDiscard = async () => {
     const isDark = document.documentElement.classList.contains('dark');
     Swal.fire({
       title: '¿Descartar cambios?',
-      text: "Se perderán las modificaciones no guardadas.",
+      text: "Recargaremos los datos de la base de datos.",
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#ff7782',
@@ -178,12 +193,22 @@ export default function Profile() {
       background: isDark ? '#0f172a' : '#fff',
       color: isDark ? '#f8fafc' : '#334155',
       customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' }
-    }).then((result) => {
+    }).then(async (result) => {
       if (result.isConfirmed) {
-        setUsername(localStorage.getItem('username') || '');
-        setProfileImg(localStorage.getItem('avatar') || '/imagenes/logo.png'); // Restaurar imagen
-        setPassword('');
-        setConfirmPassword('');
+        // Al descartar, volvemos a traer la verdad absoluta desde el Backend
+        setIsLoading(true);
+        try {
+          const datosReales = await api.getMiPerfil();
+          setUsername(datosReales.username || '');
+          setEmail(datosReales.email || '');
+          setProfileImg(datosReales.avatarUrl || '/images/logo.png');
+          setPassword('');
+          setConfirmPassword('');
+        } catch (error) {
+          console.error(error);
+        } finally {
+          setIsLoading(false);
+        }
       }
     });
   };

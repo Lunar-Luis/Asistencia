@@ -16,6 +16,7 @@ import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import MonitoreoCamara from './pages/MonitoreoCamara';
 import Terminales from './pages/Terminales';
+import RestablecerClave from './pages/RestablecerClave'; // <--- IMPORTACIÓN
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const isAuthenticated = !!localStorage.getItem('token');
@@ -46,9 +47,18 @@ export default function App() {
     <BrowserRouter>
       <ScrollToTop />
       <Routes>
+        {/* ============================================== */}
+        {/* ZONA PÚBLICA (Accesible sin estar logueado) */}
+        {/* ============================================== */}
         <Route path="/login" element={<Login />} />
         <Route path="/salir" element={<Logout />} />
+        
+        {/* ---> AQUÍ ES DONDE DEBE IR LA RUTA DE RESTABLECER <--- */}
+        <Route path="/restablecer-clave" element={<RestablecerClave />} />
 
+        {/* ============================================== */}
+        {/* ZONA PRIVADA (Protegida con Token)          */}
+        {/* ============================================== */}
         <Route 
           path="/*" 
           element={

@@ -46,4 +46,10 @@ public class UsuarioAdminService {
 
         return repository.save(admin);
     }
+
+    // Añade esto en tu UsuarioAdminService
+    public UsuarioAdmin obtenerUsuario(String usernameActual) {
+        return repository.findByUsernameAndActivoTrue(usernameActual)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+    }
 }
