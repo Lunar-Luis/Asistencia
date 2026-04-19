@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, User, IdCard, Mail, Phone, Activity, Edit, Search, Filter, ImagePlus, CreditCard, PowerOff, CheckCircle2, Wifi, } from 'lucide-react';
 import Swal from 'sweetalert2';
@@ -40,6 +40,57 @@ export default function Empleados() {
   
   const [formData, setFormData] = useState(emptyForm);
   const [isScanning, setIsScanning] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ---> MOTOR DE COMPRESIÓN PARA LA ESP32 <---
+  const comprimirImagen = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          
+          // Límite estricto para no saturar la RAM de la ESP32
+          const MAX_WIDTH = 120; 
+          const MAX_HEIGHT = 120;
+          let width = img.width;
+          let height = img.height;
+
+          // Mantiene la proporción
+          if (width > height) {
+            if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+          } else {
+            if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Calidad JPEG al 60% (Ideal para pantallas TFT pequeñas)
+          resolve(canvas.toDataURL('image/jpeg', 0.6));
+        };
+      };
+    });
+  };
+  
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      try {
+        const imagenOptimizadaBase64 = await comprimirImagen(file);
+        // Guardamos el texto Base64 en el formulario para enviarlo al backend
+        setFormData(prev => ({ ...prev, fotoUrl: imagenOptimizadaBase64 })); 
+      } catch (error) {
+        console.error("Error optimizando imagen", error);
+        Swal.fire("Error", "No se pudo procesar la foto.", "error");
+      }
+    }
+  };
 
   const fetchDatos = async () => {
     setIsLoading(true);
@@ -336,12 +387,30 @@ export default function Empleados() {
                 <div className="flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800 pb-6 md:pb-0 md:pr-6 space-y-6">
                   
                   {/* FOTO (Preview) */}
-                  <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-[2.5rem] bg-slate-50 dark:bg-slate-800/50 border-2 border-dashed border-primary/30 flex items-center justify-center overflow-hidden relative group">
-                    {formData.fotoUrl ? <img src={formData.fotoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="Preview" /> : <ImagePlus size={36} className="text-primary/40 group-hover:scale-110 transition-transform" />}
-                    <label className="absolute inset-0 bg-primary/90 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-all duration-300">
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-32 h-32 sm:w-40 sm:h-40 rounded-[2.5rem] bg-slate-50 dark:bg-slate-800/50 border-2 border-dashed border-primary/30 flex items-center justify-center overflow-hidden relative group cursor-pointer"
+                  >
+                    {formData.fotoUrl ? (
+                      <img src={formData.fotoUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="Preview" />
+                    ) : (
+                      <ImagePlus size={36} className="text-primary/40 group-hover:scale-110 transition-transform" />
+                    )}
+                    
+                    <div className="absolute inset-0 bg-primary/90 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-all duration-300">
                       <ImagePlus size={24} className="text-white mb-2" />
-                      <span className="text-[9px] font-bold text-white uppercase tracking-widest">En desarrollo</span>
-                    </label>
+                      <span className="text-[9px] font-bold text-white uppercase tracking-widest">
+                        {formData.fotoUrl ? 'Cambiar Foto' : 'Subir Foto'}
+                      </span>
+                    </div>
+
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      onChange={handleFileChange} 
+                      accept="image/*" 
+                    />
                   </div>
 
                   {/* LECTOR NFC */}

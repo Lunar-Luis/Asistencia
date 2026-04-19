@@ -122,15 +122,13 @@ export default function Asistencias() {
 
   // Datos reales desde la BD
   const [historialCompleto, setHistorialCompleto] = useState<Asistencia[]>([]);
-  // NUEVO: Lista completa de empleados para el filtro
   const [listaEmpleados, setListaEmpleados] = useState<Empleado[]>([]);
 
   // 1. ESTADOS PARA LOS FILTROS
-  // Función para obtener "YYYY-MM-DD" en la zona horaria LOCAL del usuario
   const obtenerFechaLocal = () => {
     const hoy = new Date();
     const year = hoy.getFullYear();
-    const month = String(hoy.getMonth() + 1).padStart(2, "0"); // Los meses van de 0 a 11
+    const month = String(hoy.getMonth() + 1).padStart(2, "0");
     const day = String(hoy.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   };
@@ -141,16 +139,14 @@ export default function Asistencias() {
   const [estadoFiltro, setEstadoFiltro] = useState("all");
   const [busquedaGlobal, setBusquedaGlobal] = useState("");
 
-  // 2. CARGA DE DATOS (CON POLLING PARA EL EN VIVO)
+  // 2. CARGA DE DATOS 
   const fetchDatos = async () => {
     try {
-      // Cargamos asistencias y empleados al mismo tiempo
       const [dataAsistencias, dataEmpleados] = await Promise.all([
         api.getAsistencias(),
         api.getEmpleados(),
       ]);
 
-      // Ordenar Asistencias: Los más recientes arriba
       const dataOrdenada = dataAsistencias.sort(
         (a: Asistencia, b: Asistencia) => {
           const timeA = new Date(a.marcaSalida || a.marcaEntrada).getTime();
@@ -160,8 +156,6 @@ export default function Asistencias() {
       );
 
       setHistorialCompleto(dataOrdenada);
-
-      // Guardar lista completa de empleados ordenada alfabéticamente
       setListaEmpleados(
         dataEmpleados.sort((a: Empleado, b: Empleado) =>
           a.nombre.localeCompare(b.nombre),
@@ -169,17 +163,29 @@ export default function Asistencias() {
       );
     } catch (error) {
       console.error("Error cargando datos", error);
-      Swal.fire("Error", "No se pudo cargar la información.", "error");
+      // Evitamos el Swal repetitivo en el polling silencioso
+      if(isLoading) Swal.fire("Error", "No se pudo cargar la información.", "error");
     } finally {
       setIsLoading(false);
     }
   };
 
+  // 3. SMART POLLING (Ahorro de Costos)
   useEffect(() => {
+    // 1. Carga inicial
     fetchDatos();
-    // Actualizar cada 5 segundos para el Monitor en Vivo
-    const intervalo = setInterval(fetchDatos, 5000);
-    return () => clearInterval(intervalo);
+
+    // 2. Temporizador Inteligente (30 segundos en lugar de 5)
+    const intervalId = setInterval(() => {
+      // document.hidden devuelve true si el usuario minimizó el navegador o cambió a otra pestaña.
+      if (!document.hidden) {
+        fetchDatos();
+      }
+    }, 30000); // 30000 ms = 30 segundos
+
+    // Limpieza al desmontar el componente (Cuando navegas a otra página)
+    return () => clearInterval(intervalId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 4. FILTRADO DINÁMICO
@@ -187,18 +193,15 @@ export default function Asistencias() {
     return historialCompleto.filter((item) => {
       const nombreCompleto = `${item.empleado.nombre} ${item.empleado.apellido}`;
 
-      // Filtro 1: Fecha
       const matchFecha = fechaFiltro
         ? item.fechaRegistro === fechaFiltro
         : true;
 
-      // Filtro 2: Empleado (Por ID es más seguro)
       const matchEmpleado =
         empleadoFiltro === "all"
           ? true
           : item.empleado.id?.toString() === empleadoFiltro;
 
-      // Filtro 3: Estado
       let matchEstado = true;
       if (estadoFiltro === "ontime")
         matchEstado = item.estadoEntrada === "A_TIEMPO";
@@ -207,7 +210,6 @@ export default function Asistencias() {
       else if (estadoFiltro === "absent")
         matchEstado = item.estadoEntrada === "AUSENTE";
 
-      // Filtro 4: Búsqueda Global
       const textoBusqueda =
         `${nombreCompleto} ${item.empleado.nfcUid} ${item.empleado.cargo?.nombre || ""}`.toLowerCase();
       const matchBusqueda = busquedaGlobal
@@ -302,7 +304,6 @@ export default function Asistencias() {
                       <option value="all" className={optionClassName}>
                         Todos los empleados
                       </option>
-                      {/* AHORA MAPEA LA LISTA COMPLETA DE EMPLEADOS DE LA BASE DE DATOS */}
                       {listaEmpleados.map((emp) => (
                         <option
                           key={emp.id}

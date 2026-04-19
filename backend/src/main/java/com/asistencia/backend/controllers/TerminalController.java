@@ -40,14 +40,26 @@ public class TerminalController {
         return ResponseEntity.noContent().build();
     }
 
-    // Endpoint público para que el ESP32 mande el ping sin necesidad de token JWT
+    // Endpoint público para que el ESP32 mande el ping y reciba comandos
     @PostMapping("/hardware/ping")
-    public ResponseEntity<String> recibirPing(@RequestBody java.util.Map<String, String> payload) {
+    public ResponseEntity<java.util.Map<String, String>> recibirPing(@RequestBody java.util.Map<String, String> payload) {
         String mac = payload.get("macAddress");
+        java.util.Map<String, String> response = new java.util.HashMap<>();
+
         if (mac != null && !mac.isEmpty()) {
             terminalService.reportarPing(mac);
-            return ResponseEntity.ok("Ping recibido");
+
+            // Verificamos el estado global del sistema
+            if (EmpleadoController.isModoRegistroGlobalActivo()) {
+                response.put("comando", "SYS_REGISTRO");
+            } else {
+                response.put("comando", "SYS_ASISTENCIA");
+            }
+
+            return ResponseEntity.ok(response);
         }
-        return ResponseEntity.badRequest().body("Falta macAddress");
+
+        response.put("error", "Falta macAddress");
+        return ResponseEntity.badRequest().body(response);
     }
 }

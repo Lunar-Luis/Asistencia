@@ -41,10 +41,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/asistencias/hardware/marcar").permitAll()
+                        .requestMatchers("/api/asistencias/hardware/**").permitAll()
                         .requestMatchers("/api/empleados/hardware/escanear-registro").permitAll()
                         .requestMatchers("/api/empleados/hardware/activar-modo-registro").permitAll()
                         .requestMatchers("/api/empleados/hardware/leer-registro").permitAll()
                         .requestMatchers("/api/terminales/hardware/ping").permitAll()
+                        .requestMatchers("/ws/terminales/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated()
                 )

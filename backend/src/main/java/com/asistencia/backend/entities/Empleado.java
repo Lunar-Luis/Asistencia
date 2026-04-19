@@ -30,7 +30,7 @@ public class Empleado {
     @Column(name = "nfc_uid", unique = true)
     private String nfcUid; // Aquí guardaremos el código de la tarjeta física
 
-    @Column(name = "foto_url")
+    @Column(name = "foto_url", columnDefinition = "TEXT") // <--- Solo cambiamos LONGTEXT por TEXT
     private String fotoUrl;
 
     @Column(name = "fecha_ingreso")

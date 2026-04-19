@@ -53,7 +53,8 @@ public class EmpleadoServiceImpl implements EmpleadoService {
                 .correo(dto.correo())
                 .telefono(dto.telefono())
                 .nfcUid(dto.nfcUid())
-                .fechaIngreso(LocalDate.now()) // Se pone la fecha de hoy automáticamente
+                .fotoUrl(dto.fotoUrl())
+                .fechaIngreso(LocalDate.now())
                 .activo(true)
                 .cargo(cargo)
                 .horario(horario)
@@ -79,6 +80,7 @@ public class EmpleadoServiceImpl implements EmpleadoService {
         empleadoExistente.setCorreo(dto.correo());
         empleadoExistente.setTelefono(dto.telefono());
         empleadoExistente.setNfcUid(dto.nfcUid());
+        empleadoExistente.setFotoUrl(dto.fotoUrl());
         empleadoExistente.setCargo(cargo);
         empleadoExistente.setHorario(horario);
 

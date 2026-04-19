@@ -21,10 +21,14 @@ public class EmpleadoController {
     // ========================================================
     // VARIABLES PARA LA SALA DE ESPERA TEMPORAL DEL UID
     // ========================================================
-    private String ultimoUidEscaneado = "";
-    private boolean modoRegistroActivo = false; // Nos indica si React está esperando una tarjeta
+    private static String ultimoUidEscaneado = "";
+    private static boolean modoRegistroActivo = false;// Nos indica si React está esperando una tarjeta
 
     private final EmpleadoService empleadoService;
+
+    public static boolean isModoRegistroGlobalActivo() {
+        return modoRegistroActivo;
+    }
 
     public EmpleadoController(EmpleadoService empleadoService) {
         this.empleadoService = empleadoService;
@@ -61,8 +65,11 @@ public class EmpleadoController {
     // ---> 1. REACT ACTIVA EL MODO REGISTRO (Al darle "Escanear Tarjeta") <---
     @PostMapping("/hardware/activar-modo-registro")
     public ResponseEntity<Map<String, String>> activarModoRegistro() {
-        this.modoRegistroActivo = true;
-        this.ultimoUidEscaneado = ""; // Limpiamos cualquier tarjeta vieja por seguridad
+        modoRegistroActivo = true; // Asumiendo que ya la hiciste estática
+        ultimoUidEscaneado = "";
+
+        // ---> AVISAMOS A LA ESP32 AL INSTANTE <---
+        com.asistencia.backend.config.TerminalWebSocketHandler.enviarComandoGlobal("{\"comando\": \"SYS_REGISTRO\"}");
 
         // El modo registro se apaga automáticamente después de 15 segundos
         new Timer().schedule(
@@ -70,15 +77,15 @@ public class EmpleadoController {
                     @Override
                     public void run() {
                         modoRegistroActivo = false;
+                        // ---> AVISAMOS QUE SE ACABÓ EL TIEMPO <---
+                        com.asistencia.backend.config.TerminalWebSocketHandler.enviarComandoGlobal("{\"comando\": \"SYS_ASISTENCIA\"}");
                     }
                 },
                 15000
         );
 
-        // LA SOLUCIÓN: Enviamos un JSON en lugar de texto plano
         Map<String, String> response = new HashMap<>();
         response.put("mensaje", "Modo registro activado por 15 segundos");
-
         return ResponseEntity.ok(response);
     }
 

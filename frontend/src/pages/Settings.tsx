@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion'; // <-- Aquí quitamos AnimatePresence
+import { motion } from 'framer-motion';
 import { ShieldCheck, Bell, Save, RotateCcw, Clock, CalendarX, FileBarChart, Activity, type LucideIcon } from 'lucide-react';
 import Swal from 'sweetalert2';
+import * as api from '../services/api'; // <-- IMPORTAMOS LA API
 
 const animProps = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.4 } };
 const cardStyle = "bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm p-5 sm:p-6 md:p-8 transition-colors";
 
 const SettingToggle = ({ icon: Icon, title, desc, active, onClick }: { icon: LucideIcon, title: string, desc: string, active: boolean, onClick: () => void }) => (
+  // ... (MANTÉN TU CÓDIGO DEL SETTING TOGGLE EXACTAMENTE IGUAL AQUÍ) ...
   <div onClick={onClick} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl group hover:bg-white dark:hover:bg-slate-800 transition-all duration-300 border border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 cursor-pointer gap-4">
     <div className="flex items-start sm:items-center gap-4 text-left">
       <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-xl bg-white dark:bg-slate-900 text-primary shadow-sm group-hover:scale-110 transition-transform shrink-0 border border-slate-100 dark:border-slate-800">
@@ -24,10 +26,8 @@ const SettingToggle = ({ icon: Icon, title, desc, active, onClick }: { icon: Luc
   </div>
 );
 
-// ==========================================
-// COMPONENTE SKELETON PARA AJUSTES
-// ==========================================
 const SkeletonSettings = () => (
+  // ... (MANTÉN TU SKELETON EXACTAMENTE IGUAL AQUÍ) ...
   <div className={`${cardStyle} space-y-10 w-full animate-pulse`}>
     {[1, 2, 3].map((section) => (
       <div key={section}>
@@ -51,10 +51,6 @@ const SkeletonSettings = () => (
         </div>
       </div>
     ))}
-    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
-      <div className="h-12 sm:h-14 bg-slate-200 dark:bg-slate-800 rounded-xl w-full sm:flex-1"></div>
-      <div className="h-12 sm:h-14 bg-slate-200 dark:bg-slate-800 rounded-xl w-full sm:flex-[2]"></div>
-    </div>
   </div>
 );
 
@@ -67,17 +63,28 @@ export default function Settings() {
     activityLog: true,
   });
 
+  // ---> CARGAMOS DATOS REALES DE LA BD <---
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
+    const fetchConfig = async () => {
+      try {
+        const data = await api.getConfiguracion();
+        if (data) setSettings(data);
+      } catch (error) {
+        console.error("Error cargando configuración", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchConfig();
   }, []);
 
   const toggleSetting = (id: keyof typeof settings) => {
     setSettings((prev) => ({ ...prev, [id]: typeof prev[id] === 'boolean' ? !prev[id] : prev[id] }));
   };
 
-  const handleConfirmSave = () => {
+  const handleConfirmSave = async () => {
     const isDark = document.documentElement.classList.contains('dark');
+    
     Swal.fire({
       title: '¿Guardar ajustes?',
       text: "Estas configuraciones afectarán el comportamiento del sistema.",
@@ -89,9 +96,16 @@ export default function Settings() {
       background: isDark ? '#0f172a' : '#fff',
       color: isDark ? '#f8fafc' : '#334155',
       customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' }
-    }).then((result) => {
+    }).then(async (result) => {
       if (result.isConfirmed) {
-        Swal.fire({ title: '¡Guardado!', text: 'Parámetros del sistema actualizados.', icon: 'success', background: isDark ? '#0f172a' : '#fff', color: isDark ? '#f8fafc' : '#334155', customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' }});
+        try {
+          // ---> ENVIAMOS LOS DATOS A SPRING BOOT <---
+          await api.actualizarConfiguracion(settings);
+          Swal.fire({ title: '¡Guardado!', text: 'Parámetros del sistema actualizados en la base de datos.', icon: 'success', background: isDark ? '#0f172a' : '#fff', color: isDark ? '#f8fafc' : '#334155', customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' }});
+        } catch (error) {
+          console.error(error);
+          Swal.fire('Error', 'No se pudo guardar la configuración', 'error');
+        }
       }
     });
   };
@@ -111,8 +125,10 @@ export default function Settings() {
       customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' }
     }).then((result) => {
       if (result.isConfirmed) {
-        setSettings({ cierreAutomatico: true, lateAlerts: true, weeklyReports: true, activityLog: true });
-        Swal.fire({ title: 'Restablecido', icon: 'success', background: isDark ? '#0f172a' : '#fff', color: isDark ? '#f8fafc' : '#334155', customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' }});
+        const resetData = { cierreAutomatico: true, lateAlerts: true, weeklyReports: true, activityLog: true };
+        setSettings(resetData);
+        // Opcional: podrías llamar api.actualizarConfiguracion(resetData) aquí también
+        Swal.fire({ title: 'Restablecido', text: 'Recuerda dar clic en Guardar Cambios', icon: 'info', background: isDark ? '#0f172a' : '#fff', color: isDark ? '#f8fafc' : '#334155', customClass: { popup: 'rounded-[2rem] border border-transparent dark:border-slate-800' }});
       }
     });
   };

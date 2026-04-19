@@ -8,6 +8,7 @@ public record EmpleadoRequestDTO(
         String correo,
         String telefono,
         String nfcUid,
+        String fotoUrl,
         Long cargoId,
         Long horarioId,
         Boolean activo

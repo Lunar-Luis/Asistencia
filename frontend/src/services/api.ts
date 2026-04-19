@@ -7,10 +7,13 @@ const API_URL = 'http://localhost:8080/api';
  */
 
 export const loginAPI = async (username: string, password: string) => {
+  // ---> MODIFICACIÓN: Forzamos el usuario a minúsculas y quitamos espacios <---
+  const usuarioSanitizado = username.trim().toLowerCase();
+
   const response = await fetch(`${API_URL}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username: usuarioSanitizado, password }),
   });
   if (!response.ok) throw new Error('Credenciales incorrectas');
   return response.json();
@@ -31,6 +34,50 @@ export const refreshTokenAPI = async () => {
   if (!response.ok) throw new Error('Token caducado o inválido');
   return response.json(); 
 };
+
+export const solicitarRecuperacionPassword = async (email: string) => {
+  const emailSanitizado = email.trim().toLowerCase();
+  
+  const response = await fetch(`${API_URL}/auth/recuperar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: emailSanitizado }),
+  });
+  
+  if (!response.ok) {
+      try {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Error al solicitar recuperación");
+      } catch {
+          throw new Error("Error de conexión al servidor");
+      }
+  }
+  return response.json(); 
+};
+
+export const restablecerPasswordAPI = async (token: string, nuevaPassword: string) => {
+  const response = await fetch(`${API_URL}/auth/restablecer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, nuevaPassword }),
+  });
+  
+  if (!response.ok) {
+      try {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Error al restablecer la contraseña");
+      } catch {
+          throw new Error("Error de conexión al servidor");
+      }
+  }
+  return response.json();
+};
+
+/**
+ * ==========================================
+ * NÚCLEO DE PETICIONES (FETCH WRAPPER)
+ * ==========================================
+ */
 
 const fetchAuth = async (endpoint: string, options: RequestInit = {}) => {
   const token = localStorage.getItem('token');
@@ -61,7 +108,6 @@ const fetchAuth = async (endpoint: string, options: RequestInit = {}) => {
         try {
            errorMessage = await response.text() || errorMessage;
         } catch (err) {
-           // CORRECCIÓN ESLINT: Se usa console.debug para no dejar el bloque vacío
            console.debug("No se pudo extraer el texto del error", err);
         }
     }
@@ -120,6 +166,7 @@ export interface EmpleadoRequest {
   correo: string;
   telefono: string;
   nfcUid: string;
+  fotoUrl?: string;
   cargoId: number;
   horarioId: number;
   activo?: boolean;
@@ -164,33 +211,6 @@ export interface DashboardResumen {
   }[];
 }
 
-export const getCargos = () => fetchAuth('/cargos');
-export const crearCargo = (cargo: Cargo) => fetchAuth('/cargos', { method: 'POST', body: JSON.stringify(cargo) });
-export const actualizarCargo = (id: number, cargo: Cargo) => fetchAuth(`/cargos/${id}`, { method: 'PUT', body: JSON.stringify(cargo) });
-export const desactivarCargo = (id: number) => fetchAuth(`/cargos/${id}`, { method: 'DELETE' });
-
-export const getHorarios = () => fetchAuth('/horarios');
-export const crearHorario = (horario: Horario) => fetchAuth('/horarios', { method: 'POST', body: JSON.stringify(horario) });
-export const actualizarHorario = (id: number, horario: Horario) => fetchAuth(`/horarios/${id}`, { method: 'PUT', body: JSON.stringify(horario) });
-export const desactivarHorario = (id: number) => fetchAuth(`/horarios/${id}`, { method: 'DELETE' });
-
-export const getEmpleados = () => fetchAuth('/empleados');
-export const crearEmpleado = (empleado: EmpleadoRequest) => fetchAuth('/empleados', { method: 'POST', body: JSON.stringify(empleado) });
-export const actualizarEmpleado = (id: number, empleado: EmpleadoRequest) => fetchAuth(`/empleados/${id}`, { method: 'PUT', body: JSON.stringify(empleado) });
-export const desactivarEmpleado = (id: number) => fetchAuth(`/empleados/${id}`, { method: 'DELETE' });
-
-export const activarModoRegistro = () => fetchAuth('/empleados/hardware/activar-modo-registro', { method: 'POST' });
-export const leerTarjetaHardware = () => fetchAuth('/empleados/hardware/leer-registro');
-
-export const getTerminales = () => fetchAuth('/terminales');
-export const crearTerminal = (terminal: Terminal) => fetchAuth('/terminales', { method: 'POST', body: JSON.stringify(terminal) });
-export const actualizarTerminal = (id: number, terminal: Terminal) => fetchAuth(`/terminales/${id}`, { method: 'PUT', body: JSON.stringify(terminal) });
-export const desactivarTerminal = (id: number) => fetchAuth(`/terminales/${id}`, { method: 'DELETE' });
-
-export const getAsistencias = () => fetchAuth('/asistencias');
-export const getDashboardResumen = () => fetchAuth('/asistencias/dashboard/resumen');
-export const getMiPerfil = () => fetchAuth('/usuarios/perfil');
-
 export interface ActualizarPerfilData {
   username: string;
   email: string;
@@ -198,10 +218,66 @@ export interface ActualizarPerfilData {
   avatarUrl?: string;
 }
 
+
+export interface ConfiguracionData {
+  cierreAutomatico: boolean;
+  lateAlerts: boolean;
+  weeklyReports: boolean;
+  activityLog: boolean;
+}
+
+/**
+ * ==========================================
+ * ENDPOINTS API
+ * ==========================================
+ */
+
+// --- CARGOS ---
+export const getCargos = () => fetchAuth('/cargos');
+export const crearCargo = (cargo: Cargo) => fetchAuth('/cargos', { method: 'POST', body: JSON.stringify(cargo) });
+export const actualizarCargo = (id: number, cargo: Cargo) => fetchAuth(`/cargos/${id}`, { method: 'PUT', body: JSON.stringify(cargo) });
+export const desactivarCargo = (id: number) => fetchAuth(`/cargos/${id}`, { method: 'DELETE' });
+
+// --- HORARIOS ---
+export const getHorarios = () => fetchAuth('/horarios');
+export const crearHorario = (horario: Horario) => fetchAuth('/horarios', { method: 'POST', body: JSON.stringify(horario) });
+export const actualizarHorario = (id: number, horario: Horario) => fetchAuth(`/horarios/${id}`, { method: 'PUT', body: JSON.stringify(horario) });
+export const desactivarHorario = (id: number) => fetchAuth(`/horarios/${id}`, { method: 'DELETE' });
+
+// --- EMPLEADOS ---
+export const getEmpleados = () => fetchAuth('/empleados');
+export const crearEmpleado = (empleado: EmpleadoRequest) => fetchAuth('/empleados', { method: 'POST', body: JSON.stringify(empleado) });
+export const actualizarEmpleado = (id: number, empleado: EmpleadoRequest) => fetchAuth(`/empleados/${id}`, { method: 'PUT', body: JSON.stringify(empleado) });
+export const desactivarEmpleado = (id: number) => fetchAuth(`/empleados/${id}`, { method: 'DELETE' });
+
+// --- HARDWARE / NFC ---
+export const activarModoRegistro = () => fetchAuth('/empleados/hardware/activar-modo-registro', { method: 'POST' });
+export const leerTarjetaHardware = () => fetchAuth('/empleados/hardware/leer-registro');
+
+// --- TERMINALES ---
+export const getTerminales = () => fetchAuth('/terminales');
+export const crearTerminal = (terminal: Terminal) => fetchAuth('/terminales', { method: 'POST', body: JSON.stringify(terminal) });
+export const actualizarTerminal = (id: number, terminal: Terminal) => fetchAuth(`/terminales/${id}`, { method: 'PUT', body: JSON.stringify(terminal) });
+export const desactivarTerminal = (id: number) => fetchAuth(`/terminales/${id}`, { method: 'DELETE' });
+
+// --- ASISTENCIAS ---
+export const getAsistencias = () => fetchAuth('/asistencias');
+export const getDashboardResumen = () => fetchAuth('/asistencias/dashboard/resumen');
+
+// --- PERFIL DE USUARIO ---
+export const getMiPerfil = () => fetchAuth('/usuarios/perfil');
+
 export const actualizarPerfil = async (data: ActualizarPerfilData) => {
+  // ---> MODIFICACIÓN: Interceptamos y limpiamos los datos <---
+  const datosSanitizados = {
+    ...data,
+    username: data.username.trim().toLowerCase(),
+    email: data.email.trim().toLowerCase()
+  };
+
   const response = await fetchAuth('/usuarios/perfil', { 
     method: 'PUT', 
-    body: JSON.stringify(data) 
+    body: JSON.stringify(datosSanitizados) 
   });
   
   if (response && response.token) {
@@ -209,48 +285,14 @@ export const actualizarPerfil = async (data: ActualizarPerfilData) => {
     localStorage.setItem('username', response.username);
     localStorage.setItem('rol', response.rol);
     if (response.avatarUrl) localStorage.setItem('avatar', response.avatarUrl);
-    localStorage.setItem('email', data.email);
+    // Usamos el email sanitizado para guardarlo en el local storage
+    localStorage.setItem('email', datosSanitizados.email);
   }
   
   return response;
 };
 
 
-// NUEVO: Petición para solicitar recuperación de contraseña
-export const solicitarRecuperacionPassword = async (email: string) => {
-  const response = await fetch(`${API_URL}/auth/recuperar`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email }),
-  });
-  
-  if (!response.ok) {
-      // Intentamos sacar el error del backend
-      try {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "Error al solicitar recuperación");
-      } catch {
-          throw new Error("Error de conexión al servidor");
-      }
-  }
-  return response.json(); // Devuelve el { message: "..." }
-};
-
-// NUEVO: Petición para enviar la nueva contraseña con el token
-export const restablecerPasswordAPI = async (token: string, nuevaPassword: string) => {
-  const response = await fetch(`${API_URL}/auth/restablecer`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, nuevaPassword }),
-  });
-  
-  if (!response.ok) {
-      try {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "Error al restablecer la contraseña");
-      } catch {
-          throw new Error("Error de conexión al servidor");
-      }
-  }
-  return response.json();
-};
+// --- CONFIGURACIÓN DEL SISTEMA ---
+export const getConfiguracion = () => fetchAuth('/configuracion');
+export const actualizarConfiguracion = (data: ConfiguracionData) => fetchAuth('/configuracion', { method: 'PUT', body: JSON.stringify(data) });
