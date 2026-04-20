@@ -8,25 +8,19 @@ import com.asistencia.backend.repositories.EmpleadoRepository;
 import com.asistencia.backend.services.CargoService;
 import com.asistencia.backend.services.EmpleadoService;
 import com.asistencia.backend.services.HorarioService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class EmpleadoServiceImpl implements EmpleadoService {
 
     private final EmpleadoRepository empleadoRepository;
     private final CargoService cargoService;
     private final HorarioService horarioService;
-
-    public EmpleadoServiceImpl(EmpleadoRepository empleadoRepository,
-                               CargoService cargoService,
-                               HorarioService horarioService) {
-        this.empleadoRepository = empleadoRepository;
-        this.cargoService = cargoService;
-        this.horarioService = horarioService;
-    }
 
     @Override
     public List<Empleado> obtenerEmpleadosActivos() {
@@ -41,18 +35,19 @@ public class EmpleadoServiceImpl implements EmpleadoService {
 
     @Override
     public Empleado crearEmpleado(EmpleadoRequestDTO dto) {
-        // 1. Buscamos el Cargo y el Horario en la base de datos
         Cargo cargo = cargoService.obtenerPorId(dto.cargoId());
         Horario horario = horarioService.obtenerPorId(dto.horarioId());
 
-        // 2. Armamos el nuevo empleado
+        // ---> LA MAGIA ESTÁ AQUÍ: Si viene vacío, lo volvemos "null" <---
+        String nfcLimpio = (dto.nfcUid() != null && dto.nfcUid().trim().isEmpty()) ? null : dto.nfcUid();
+
         Empleado nuevoEmpleado = Empleado.builder()
                 .nombre(dto.nombre())
                 .apellido(dto.apellido())
                 .cedula(dto.cedula())
                 .correo(dto.correo())
                 .telefono(dto.telefono())
-                .nfcUid(dto.nfcUid())
+                .nfcUid(nfcLimpio) // <-- Usamos el nfc limpio
                 .fotoUrl(dto.fotoUrl())
                 .fechaIngreso(LocalDate.now())
                 .activo(true)
@@ -60,36 +55,32 @@ public class EmpleadoServiceImpl implements EmpleadoService {
                 .horario(horario)
                 .build();
 
-        // 3. Lo guardamos
         return empleadoRepository.save(nuevoEmpleado);
     }
 
     @Override
     public Empleado actualizarEmpleado(Long id, EmpleadoRequestDTO dto) {
-        // 1. Buscamos el empleado existente
         Empleado empleadoExistente = obtenerPorId(id);
-
-        // 2. Buscamos el nuevo Cargo y Horario (por si se los cambiaron en React)
         Cargo cargo = cargoService.obtenerPorId(dto.cargoId());
         Horario horario = horarioService.obtenerPorId(dto.horarioId());
 
-        // 3. Actualizamos todos los datos
+        // ---> LA MISMA LIMPIEZA PARA ACTUALIZAR <---
+        String nfcLimpio = (dto.nfcUid() != null && dto.nfcUid().trim().isEmpty()) ? null : dto.nfcUid();
+
         empleadoExistente.setNombre(dto.nombre());
         empleadoExistente.setApellido(dto.apellido());
         empleadoExistente.setCedula(dto.cedula());
         empleadoExistente.setCorreo(dto.correo());
         empleadoExistente.setTelefono(dto.telefono());
-        empleadoExistente.setNfcUid(dto.nfcUid());
+        empleadoExistente.setNfcUid(nfcLimpio); // <-- Usamos el nfc limpio
         empleadoExistente.setFotoUrl(dto.fotoUrl());
         empleadoExistente.setCargo(cargo);
         empleadoExistente.setHorario(horario);
 
-        // 4. Si desde React nos mandan la orden de cambiar el estado (Activar/Desactivar)
         if (dto.activo() != null) {
             empleadoExistente.setActivo(dto.activo());
         }
 
-        // 5. Guardamos los cambios
         return empleadoRepository.save(empleadoExistente);
     }
 

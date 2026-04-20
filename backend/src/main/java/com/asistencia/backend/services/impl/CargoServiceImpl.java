@@ -3,22 +3,21 @@ package com.asistencia.backend.services.impl;
 import com.asistencia.backend.entities.Cargo;
 import com.asistencia.backend.repositories.CargoRepository;
 import com.asistencia.backend.services.CargoService;
+import lombok.RequiredArgsConstructor; // <--- Importación de Lombok
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor // <--- Magia de Lombok
 public class CargoServiceImpl implements CargoService {
 
     private final CargoRepository cargoRepository;
 
-    public CargoServiceImpl(CargoRepository cargoRepository) {
-        this.cargoRepository = cargoRepository;
-    }
+    // ¡Adiós al constructor manual!
 
     @Override
     public List<Cargo> obtenerCargosActivos() {
-        // Borramos el "findAllByActivoTrue()" y usamos "findAll()"
         return cargoRepository.findAll();
     }
 
@@ -40,7 +39,6 @@ public class CargoServiceImpl implements CargoService {
         cargoExistente.setNombre(cargoDetalles.getNombre());
         cargoExistente.setDescripcion(cargoDetalles.getDescripcion());
 
-        // ---> AGREGA ESTA LÍNEA <---
         if (cargoDetalles.getActivo() != null) {
             cargoExistente.setActivo(cargoDetalles.getActivo());
         }

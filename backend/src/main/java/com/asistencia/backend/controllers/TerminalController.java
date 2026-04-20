@@ -1,23 +1,24 @@
 package com.asistencia.backend.controllers;
 
 import com.asistencia.backend.entities.Terminal;
+import com.asistencia.backend.services.HardwareRegistroService;
 import com.asistencia.backend.services.TerminalService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/terminales")
-@CrossOrigin(origins = "*")
+@RequiredArgsConstructor
 public class TerminalController {
 
     private final TerminalService terminalService;
-
-    public TerminalController(TerminalService terminalService) {
-        this.terminalService = terminalService;
-    }
+    private final HardwareRegistroService hardwareRegistroService; // Inyectamos el nuevo servicio
 
     @GetMapping
     public ResponseEntity<List<Terminal>> listarTerminales() {
@@ -42,15 +43,15 @@ public class TerminalController {
 
     // Endpoint público para que el ESP32 mande el ping y reciba comandos
     @PostMapping("/hardware/ping")
-    public ResponseEntity<java.util.Map<String, String>> recibirPing(@RequestBody java.util.Map<String, String> payload) {
+    public ResponseEntity<Map<String, String>> recibirPing(@RequestBody Map<String, String> payload) {
         String mac = payload.get("macAddress");
-        java.util.Map<String, String> response = new java.util.HashMap<>();
+        Map<String, String> response = new HashMap<>();
 
         if (mac != null && !mac.isEmpty()) {
             terminalService.reportarPing(mac);
 
-            // Verificamos el estado global del sistema
-            if (EmpleadoController.isModoRegistroGlobalActivo()) {
+            // ---> AHORA USAMOS EL SERVICIO DE HARDWARE <---
+            if (hardwareRegistroService.isModoRegistroActivo()) {
                 response.put("comando", "SYS_REGISTRO");
             } else {
                 response.put("comando", "SYS_ASISTENCIA");

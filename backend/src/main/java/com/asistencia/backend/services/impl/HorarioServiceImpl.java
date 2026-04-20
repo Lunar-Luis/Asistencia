@@ -3,18 +3,16 @@ package com.asistencia.backend.services.impl;
 import com.asistencia.backend.entities.Horario;
 import com.asistencia.backend.repositories.HorarioRepository;
 import com.asistencia.backend.services.HorarioService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class HorarioServiceImpl implements HorarioService {
 
     private final HorarioRepository horarioRepository;
-
-    public HorarioServiceImpl(HorarioRepository horarioRepository) {
-        this.horarioRepository = horarioRepository;
-    }
 
     @Override
     public List<Horario> obtenerHorariosActivos() {

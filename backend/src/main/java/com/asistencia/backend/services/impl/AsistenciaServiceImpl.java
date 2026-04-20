@@ -11,6 +11,7 @@ import com.asistencia.backend.repositories.AsistenciaRepository;
 import com.asistencia.backend.repositories.EmpleadoRepository;
 import com.asistencia.backend.repositories.TerminalRepository;
 import com.asistencia.backend.services.AsistenciaService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -21,17 +22,12 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
+@RequiredArgsConstructor
 public class AsistenciaServiceImpl implements AsistenciaService {
 
     private final AsistenciaRepository asistenciaRepository;
     private final EmpleadoRepository empleadoRepository;
     private final TerminalRepository terminalRepository;
-
-    public AsistenciaServiceImpl(AsistenciaRepository asistenciaRepository, EmpleadoRepository empleadoRepository, TerminalRepository terminalRepository) {
-        this.asistenciaRepository = asistenciaRepository;
-        this.empleadoRepository = empleadoRepository;
-        this.terminalRepository = terminalRepository;
-    }
 
     @Override
     public List<Asistencia> obtenerTodas() {
@@ -55,8 +51,12 @@ public class AsistenciaServiceImpl implements AsistenciaService {
             return registrarEntrada(empleado, terminal, ahora, hoy, dto.fotoUrl());
         } else {
             Asistencia asistencia = registroDeHoy.get();
-            if (asistencia.getMarcaSalida() == null) {
 
+            if (asistencia.getEstadoEntrada() == EstadoAsistencia.AUSENTE) {
+                throw new RuntimeException("Límite de tiempo excedido. El sistema ya registró una ausencia automática para hoy.");
+            }
+
+            if (asistencia.getMarcaSalida() == null) {
                 long minutosTranscurridos = Duration.between(asistencia.getMarcaEntrada(), ahora).toMinutes();
 
                 if (minutosTranscurridos < 15) {
@@ -73,7 +73,6 @@ public class AsistenciaServiceImpl implements AsistenciaService {
     private Asistencia registrarEntrada(Empleado empleado, Terminal terminal, LocalDateTime ahora, LocalDate hoy, String fotoUrl) {
         Horario horario = empleado.getHorario();
         LocalTime horaRealEntrada = ahora.toLocalTime();
-
         LocalTime limiteAceptable = horario.getHoraEntrada().plusMinutes(horario.getToleranciaMinutos());
 
         EstadoAsistencia estado = horaRealEntrada.isAfter(limiteAceptable) ? EstadoAsistencia.TARDE : EstadoAsistencia.A_TIEMPO;
@@ -94,8 +93,6 @@ public class AsistenciaServiceImpl implements AsistenciaService {
         asistencia.setMarcaSalida(ahora);
         asistencia.setFotoSalidaUrl(fotoUrl);
 
-        // ---> CAMBIO CLAVE AQUÍ <---
-        // Calculamos la diferencia exacta en minutos y la guardamos como un número entero (Integer)
         Duration duracion = Duration.between(asistencia.getMarcaEntrada(), ahora);
         int minutosTotales = (int) duracion.toMinutes();
 
@@ -111,16 +108,10 @@ public class AsistenciaServiceImpl implements AsistenciaService {
 
         List<Asistencia> asistenciasHoy = asistenciaRepository.findAllByFechaRegistro(hoy);
 
-        // ---> NUEVA LÓGICA DE CONTEO PARA HOY <---
         long aTiempoHoy = asistenciasHoy.stream().filter(a -> a.getEstadoEntrada() == EstadoAsistencia.A_TIEMPO).count();
         long tardeHoy = asistenciasHoy.stream().filter(a -> a.getEstadoEntrada() == EstadoAsistencia.TARDE).count();
 
-        // Presentes reales: Solo los que llegaron a tiempo o tarde
         long presentesHoy = aTiempoHoy + tardeHoy;
-
-        // Ausentes: El total de empleados menos los que realmente vinieron.
-        // Esto funciona perfecto a las 3:00 PM (cuando aún no corre el cron)
-        // y a las 11:59 PM (cuando el cron ya insertó las filas de 'AUSENTE').
         long ausentesHoy = Math.max(0, totalEmpleados - presentesHoy);
 
         java.util.List<com.asistencia.backend.dtos.ChartDataDTO> chartData = new java.util.ArrayList<>();
@@ -129,7 +120,6 @@ public class AsistenciaServiceImpl implements AsistenciaService {
             LocalDate fechaIteracion = hoy.minusDays(i);
             List<Asistencia> asisDia = asistenciaRepository.findAllByFechaRegistro(fechaIteracion);
 
-            // ---> NUEVA LÓGICA DE CONTEO PARA LA GRÁFICA <---
             long aTiempoDia = asisDia.stream().filter(a -> a.getEstadoEntrada() == EstadoAsistencia.A_TIEMPO).count();
             long tardeDia = asisDia.stream().filter(a -> a.getEstadoEntrada() == EstadoAsistencia.TARDE).count();
 

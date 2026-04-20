@@ -3,24 +3,20 @@ package com.asistencia.backend.services.impl;
 import com.asistencia.backend.entities.Terminal;
 import com.asistencia.backend.repositories.TerminalRepository;
 import com.asistencia.backend.services.TerminalService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class TerminalServiceImpl implements TerminalService {
 
     private final TerminalRepository terminalRepository;
 
-    public TerminalServiceImpl(TerminalRepository terminalRepository) {
-        this.terminalRepository = terminalRepository;
-    }
-
     @Override
     public List<Terminal> obtenerTerminalesActivas() {
-        // ---> CAMBIO CLAVE AQUÍ <---
-        // Devolvemos TODAS las terminales (activas e inactivas) para que React pueda mostrarlas en gris.
         return terminalRepository.findAll();
     }
 

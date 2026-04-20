@@ -13,23 +13,21 @@ import java.util.Optional;
 @Repository
 public interface AsistenciaRepository extends JpaRepository<Asistencia, Long> {
 
-    // Método vital: Busca si el empleado YA marcó asistencia HOY
     Optional<Asistencia> findByEmpleadoIdAndFechaRegistro(Long empleadoId, LocalDate fechaRegistro);
 
-    // ---> 1. REPARAMOS LA CONSULTA DEL DASHBOARD <---
+    // ---> CAMBIADO A "LEFT JOIN" PARA INCLUIR LAS AUSENCIAS SIN TERMINAL <---
     @Query("SELECT a FROM Asistencia a " +
-            "JOIN FETCH a.empleado e " +
-            "JOIN FETCH e.cargo c " +
-            "JOIN FETCH e.horario h " +
-            "JOIN FETCH a.terminal t " +
+            "LEFT JOIN FETCH a.empleado e " +
+            "LEFT JOIN FETCH e.cargo c " +
+            "LEFT JOIN FETCH e.horario h " +
+            "LEFT JOIN FETCH a.terminal t " +
             "WHERE a.fechaRegistro = :fechaRegistro")
     List<Asistencia> findAllByFechaRegistro(@Param("fechaRegistro") LocalDate fechaRegistro);
 
-    // ---> 2. REPARAMOS LA CONSULTA DE LA LISTA GENERAL <---
     @Query("SELECT a FROM Asistencia a " +
-            "JOIN FETCH a.empleado e " +
-            "JOIN FETCH e.cargo c " +
-            "JOIN FETCH e.horario h " +
-            "JOIN FETCH a.terminal t")
+            "LEFT JOIN FETCH a.empleado e " +
+            "LEFT JOIN FETCH e.cargo c " +
+            "LEFT JOIN FETCH e.horario h " +
+            "LEFT JOIN FETCH a.terminal t")
     List<Asistencia> findAll();
 }

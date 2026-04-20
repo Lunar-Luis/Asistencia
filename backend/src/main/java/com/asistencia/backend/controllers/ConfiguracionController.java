@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/configuracion")
-@CrossOrigin(origins = "*") // Ajusta según tus cors
 public class ConfiguracionController {
 
     @Autowired
@@ -25,7 +24,7 @@ public class ConfiguracionController {
 
     @PutMapping
     public ResponseEntity<ConfiguracionSistema> actualizarConfiguracion(@RequestBody ConfiguracionSistema configActualizada) {
-        configActualizada.setId(1L); // Aseguramos que no creen nuevas filas
+        configActualizada.setId(1L);
         ConfiguracionSistema guardada = repository.save(configActualizada);
         return ResponseEntity.ok(guardada);
     }

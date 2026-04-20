@@ -20,13 +20,13 @@ public class Asistencia {
     private Empleado empleado;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "terminal_id", nullable = false)
+    @JoinColumn(name = "terminal_id")
     private Terminal terminal;
 
     @Column(name = "fecha_registro", nullable = false)
     private LocalDate fechaRegistro;
 
-    @Column(name = "marca_entrada", nullable = false)
+    @Column(name = "marca_entrada")
     private LocalDateTime marcaEntrada;
 
     @Column(name = "marca_salida")
